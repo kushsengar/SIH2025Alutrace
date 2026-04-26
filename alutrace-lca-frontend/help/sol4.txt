@@ -1,0 +1,767 @@
+AI-Powered LCA + Circularity Platform — Full R&D Package
+Target: Aluminium (core), expandable to copper & other critical metals
+Audience: CTO / Research Director / Funding body / Engineering teams
+Prepared by: Systems Architect · LCA Scientist · ML Engineer
+Timeline: 12–18 months (MVP 6–9 months)
+Executive summary (1-paragraph)
+
+Build an enterprise-grade, AI-enhanced Life Cycle Assessment (LCA) platform that integrates circularity metrics (recycled content, recovery, MCI, displacement), fills data gaps via ML, and delivers decision-ready visualizations and ISO-compliant reports for metallurgy (start with aluminium). The platform is API-first, cloud-native, secure, and designed for production pilots with industry partners. MVP in 6–9 months; production rollout in 12–18 months. Estimated budget: MVP ≈ USD 0.6–1.0M; Production rollout ≈ USD 1.5–3.0M (ranges shown in Budget section).
+
+1. Functional & Non-Functional Requirements
+1.1 Functional Requirements (must-have)
+
+Data ingestion
+
+Batch and streaming connectors (CSV, Excel, JSON, SFTP, API, OPC-UA/MQTT for SCADA).
+
+Schema validation and provenance tagging on ingest.
+
+Canonical LCI store
+
+Normalized process, flow and unit records (see Data Layer).
+
+AI/ML services
+
+Imputation service for missing inventory values (predictive API).
+
+Surrogate LCA models for fast scenario evaluation.
+
+Recommendation engine for circular strategies (multi-objective: emissions, material use, cost).
+
+LCA & Circularity engine
+
+ISO 14040/44 compatible calculations: GWP (CO₂e), primary energy (CED), water, resource depletion, ecotoxicity (optional).
+
+Circularity KPIs: recycled content, recovery rate, MCI/CI, displacement benefits.
+
+Allocation rules & modular system boundaries.
+
+UX & Reporting
+
+Role-based dashboards (LCA Analyst, Plant Engineer, Policy/Exec).
+
+Visualizations: Sankey, scenario compare, sensitivity sliders, maps.
+
+ISO-aligned report generator (PDF/Excel) with provenance & uncertainty.
+
+API & Integrations
+
+REST + OpenAPI spec; optional GraphQL gateway; webhooks.
+
+Security & Governance
+
+RBAC, SSO (OAuth2/OIDC), encryption, audit logs.
+
+Monitoring & MLOps
+
+Model registry, versioning, drift detection, retraining pipelines.
+
+Pilot management
+
+Pilot workspace, consented data sharing (NDA/MOU templates included).
+
+1.2 Non-Functional Requirements
+
+Performance: Scenario response ≤ 30s for standard LCA run; surrogate response < 5s.
+
+Scalability: Multi-tenant, horizontal scaling for compute (K8s), and storage (object storage + DB sharding).
+
+Availability: 99.9% SLA for API; DR with RTO < 4 hours, RPO < 1 hour.
+
+Security & Compliance: SOC2 / ISO27001 readiness; data residency controls; encryption at rest (AES-256) & in transit (TLS1.2+).
+
+Usability: Onboard non-expert with guided workflows — task completion < 10 minutes for basic scenario.
+
+Maintainability: IaC, CI/CD with infrastructure as code, automated testing.
+
+Explainability & Transparency: Every ML prediction accompanied by confidence interval, provenance, and feature explanation.
+
+2. Data & Knowledge Layer
+2.1 Canonical Dataset Schema (core entities)
+
+Below is a concise JSON-style schema summary for LCI data (full schema provided as downloadable JSON in implementation).
+
+Entities
+
+Process
+
+process_id (UUID)
+
+name, description, technology_code
+
+location (country/region)
+
+unit (functional unit basis)
+
+temporal_coverage (year)
+
+provenance (source_id)
+
+Flow
+
+flow_id, name, type (emission/resource/product/waste)
+
+unit (kg, MJ, m3, etc.), amount (float)
+
+uncertainty {distribution: normal/lognormal/triangular, params }
+
+Material
+
+material_id, CAS_or_ISO_code, recycled_content_pct, grade
+
+Activity (process instance)
+
+activity_id, process_id, inputs[] (material_id, amount), outputs[]
+
+energy_mix (grid origin), transport_modes
+
+Source
+
+source_id, type (literature, plant, database), citation, confidence_score
+
+Unit
+
+unit definitions and conversion factors
+
+UncertaintyRecord
+
+Monte Carlo distribution metadata, correlation groups
+
+ProvenanceTag
+
+who uploaded, when, acceptance tests passed
+
+2.2 Units & Conventions
+
+SI units primary; use canonical unit registry service for conversion.
+
+Functional Unit (user selectable) stored per scenario—kg metal produced, MJ, or 1 functional product.
+
+2.3 Data Ingestion & Validation Pipelines
+
+Connectors: CSV/Excel template, REST API, SFTP, OPC-UA, SCADA adapters, manual UI upload.
+
+Pre-validation: schema check, units, required fields.
+
+Harmonization: unit conversion, mapping to canonical material codes (internal dictionary).
+
+Provenance capture: source ID, timestamp, user.
+
+Automated QA: range checks, cross-field checks, mass balance tests, duplicate detection.
+
+Staging & Approval: validated records stored in staging; domain expert approves before production LCI.
+
+2.4 Proxy Rules for Missing Values (immediate operational rules)
+
+Rule 1 (Direct substitution): If a local process lacks a factor but exact same tech & location exists in database, reuse with provenance.
+
+Rule 2 (Nearest neighbour): Use weighted average of same technology in similar region (distance metric: tech, ore grade, grid intensity).
+
+Rule 3 (Physics/stoichiometry): Where possible compute flows from stoichiometric/energy balances (e.g., ore → metal yields).
+
+Rule 4 (Conservative default): If no data, apply conservative default (upper bound emissions) and tag as high-uncertainty.
+
+Rule 5 (ML imputation): Use trained ML imputer; return prediction + confidence interval; fallback to Rule 4 if confidence < threshold.
+
+Rule 6 (User override): Allow expert manual override with required justification and provenance.
+
+All proxy imputations must record method, model version, confidence, and be visible in UI + report.
+
+3. Implementation Plan — Phases 0–9 (sprints, milestones, acceptance criteria)
+
+Sprint cadence: 2-week sprints. Number of sprints per phase shown. Acceptance criteria are pass/fail tests.
+
+Phase	Duration	Key outcomes
+Phase 0 – Project Setup & Architecture	2 weeks (1 sprint)	Project charter, infra budget, security baseline, team hiring starts. AC: Charter signed; infra budget approved.
+Phase 1 – Requirements & Benchmarking	4 weeks (2 sprints)	Final FR/NFR, user stories, data templates, ISO mapping (ISO14040/44). AC: Requirements doc + sample LCI templates.
+Phase 2 – Data Acquisition & Pipeline (MVP)	8 weeks (4 sprints)	Ingest connectors, mapping, staging DB, validation rules. AC: End-to-end ingest of sample aluminium dataset + provenance.
+Phase 3 – LCA Engine Core	8 weeks (4 sprints)	Core LCA computations (GWP, CED), allocation rules, functional unit support. AC: Verified LCA output matches known benchmark for 1 aluminium case within ±10%.
+Phase 4 – ML Imputation & Surrogate Models	10 weeks (5 sprints)	ML imputer, surrogate LCA for fast runs, uncertainty outputs. AC: Imputer RMSE < baseline and calibrated PIs; surrogate latency <5s.
+Phase 5 – Backend & API	6 weeks (3 sprints)	REST API, model serving (MLflow), auth & RBAC. AC: OpenAPI tests pass; role-based access enforced.
+Phase 6 – Frontend & Visualizations (MVP)	8 weeks (4 sprints)	Dashboards (Sankey, compare), guided workflows, scenario editor. AC: Usability test median SUS score ≥70 in pilot user group (n≥5).
+Phase 7 – Security, Compliance & CI/CD	4 weeks (2 sprints)	Audit logging, encryption, automated tests, IaC. AC: CI/CD pipeline deploys to staging; baseline security scan clean.
+Phase 8 – Pilot Integration & Validation (Industry)	12 weeks (6 sprints)	Pilot runs with 1–2 partners, sensitivity, workshops. AC: Pilot acceptance criteria met (see Pilot section).
+Phase 9 – Production Hardening & Rollout	8–16 weeks	Multi-tenant setup, monitoring, docs, staff training. AC: Production deployment, documented SOPs, SLA approved.
+
+Total MVP (Phases 0–6) ≈ 6–9 months. Production (0–9) ≈ 12–18 months.
+
+Milestones & Deliverables per phase: detailed deliverables included in Appendix (deliverables list: docs, datasets, code repos, docker images, signed pilot MOU, ISO-aligned report template, investor deck draft).
+
+4. Technology Stack & Justification
+Layer	Recommendation	Reason / Justification
+Cloud Infra	AWS (EKS, S3, RDS Aurora, SageMaker/EMR) or GCP/Azure valid alternative	Mature ML infra, managed K8s, cost controls, global regions for data residency.
+Orchestration	Kubernetes (EKS/GKE/AKS)	Containerized microservices, autoscaling, portability.
+Backend	Python (FastAPI) microservices	Fast, async, excellent ML ecosystem, easy OpenAPI generation.
+LCA Engine	openLCA core (integrate via Python) or custom LCA microservice	ISO compatibility and LCI integration; can embed or call openLCA for validated calculations.
+Data Storage	Postgres (RDS/Aurora) for relational LCI; S3 for object storage	ACID for metadata, S3 for datasets and MC results.
+Timeseries / Telemetry	InfluxDB / Prometheus	Monitor plant telemetry, model drift.
+ML Platform	PyTorch / scikit-learn / XGBoost / LightGBM; MLflow registry	Ensemble of libraries; MLflow for model versioning & reproducibility.
+MLOps	Kubeflow or AWS SageMaker Pipelines	Pipelines for training, retraining, deployment.
+Frontend	React + TypeScript, Tailwind CSS, D3 / Recharts	Responsive, rich visualization and fast UX; tailwind for consistent styling.
+Auth / Security	OIDC / Auth0 or corporate SSO; Vault for secrets	Enterprise auth, secrets management.
+CI/CD	GitHub Actions / GitLab CI; Terraform for IaC	Automated deployments and infra as code.
+Container images	Docker	Standardized deployment artefacts.
+Logging / Tracing	ELK stack (Elasticsearch/Logstash/Kibana) or Datadog	Centralized logs and observability.
+Reporting	PDF generator (WeasyPrint / Puppeteer) + Excel exports	ISO-aligned report exports.
+Security scanning	Trivy / Snyk	Image vulnerability scanning.
+
+Notes: choose cloud provider consistent with partner data residency and procurement rules. The stack favors open standards with managed services to reduce ops burden.
+
+5. AI/ML Layer — Models, Training, Validation, Explainability
+5.1 Model Classes
+
+Imputation models (predict missing LCI flows)
+
+Algorithms: Gradient Boosting (XGBoost/LightGBM), Random Forest, Bayesian Regression, Gaussian Process for small data regimes.
+
+Output: point estimate + predictive interval.
+
+Surrogate LCA models (fast approximation of full LCA)
+
+Algorithms: Ensemble regressors or neural nets trained on many full LCA runs.
+
+Use: interactive scenario exploration.
+
+Classification models
+
+Identify process technology class or data quality flags.
+
+Recommendation engine
+
+Multi-objective optimization (Pareto front) combining emissions, circularity, and cost — e.g., NSGA-II or constrained optimization.
+
+Uncertainty models
+
+Bayesian models, quantile regression, or conformal prediction for calibrated intervals.
+
+Anomaly/dataset drift detection
+
+Statistical tests, autoencoders for telemetry anomalies.
+
+5.2 Algorithm Choices & Rationale
+
+XGBoost / LightGBM: strong tabular performance, fast training, explainable via SHAP.
+
+RandomForest: robust baseline and interpretable.
+
+GaussianProcess: when small datasets & need calibrated uncertainty.
+
+Neural Nets: surrogate LCA where high nonlinearity and large synthetic training data exist.
+
+Bayesian Regression: probabilistic outputs where priors are useful.
+
+5.3 Training & Validation Setup
+
+Data split: train/validation/test; hold out industry case studies as unseen test.
+
+Cross-validation: nested CV for hyperparameter tuning.
+
+Metrics: RMSE, MAE, R² for point estimates; CRPS, PI coverage (e.g., 95% interval coverage), calibration plots for probabilistic models.
+
+Robustness checks: sensitivity to missing features, performance by region/tech class.
+
+Explainability: SHAP value explainers, permutation importance, partial dependency plots (PDP), counterfactual tests.
+
+Model explainability UI: each prediction shows top 5 contributing features and impact on value.
+
+5.4 Productionization (MLOps)
+
+Model registry: MLflow (model versions, artifacts, metrics).
+
+Serving: KFServing / Triton or Sagemaker endpoints.
+
+Monitoring: input drift, prediction distribution shifts, model latency & errors.
+
+Retraining triggers: scheduled + data-drift thresholds.
+
+A/B testing: evaluate new models against baseline on pilot streams.
+
+6. LCA & Circularity Engine (Design)
+6.1 Core Calculations
+
+Impact categories (configurable):
+
+GWP100 (CO₂e, IPCC factors), Primary Energy Demand (CED), Water Use, Abiotic Resource Depletion, Acidification, Eutrophication.
+
+Standards: Comply with ISO 14040/44 workflow (goal & scope, inventory, impact assessment, interpretation).
+
+Allocation rules: mass/energy/biophysical; options for circular systems (cut-off, 50/50, system expansion) per user choice.
+
+Monte Carlo engine: run uncertainty propagation across distributions (n configurable, default 1,000).
+
+6.2 Circularity KPIs (computed per scenario)
+
+Recycled Content (%) = (mass of recycled material input / total material input) × 100
+
+Recovery Rate (%) = (mass recovered at EoL / mass available at EoL) × 100
+
+Material Circularity Indicator (MCI) (high-level): compute per Ellen MacArthur formulation – track utility & mass flows and average lifespan adjustments. (Platform stores formula, components, and assumptions so provenance traceable.)
+
+Displacement Metric = avoided primary material demand due to recycling × primary material impact factor — reported as CO₂e avoided.
+
+Circular Footprint = composite index mapping material throughput reduction, resource savings, and energy implications (configurable weighting).
+
+6.3 Benchmark Validation
+
+Validate results versus: published peer-reviewed LCA of aluminium smelting/recycling (internal benchmarks), Ecoinvent reference items, industry reports. Acceptance: model outputs within ±10–15% of validated studies given matched boundaries; discrepancies >15% require root-cause review.
+
+7. Explainability & Transparency (UX + Methods)
+7.1 Uncertainty Representation
+
+Numeric: point estimate + 95% PI, mean, median, stdev.
+
+Visual: violin plots, error bars, cumulative density graphs.
+
+Traceability: clickable provenance — show source docs, uploader, methodology, model version.
+
+7.2 Feature Importance & Local Explanations
+
+Global: SHAP summary plots, feature permutation importance.
+
+Local: SHAP waterfall for single prediction, counterfactual suggestions (e.g., “increase recycled content by 10% to reduce GWP by X”).
+
+7.3 Rule-Based Fallbacks
+
+If ML confidence < threshold (e.g., predictive PI width > X), system uses rule-based defaults and annotates results: “ML imputation low confidence — conservative default applied.” This preserves user trust and regulatory defensibility.
+
+7.4 Audit & Provenance
+
+Immutable logs (append-only) for every LCA run, data ingest, model version, and user override. Exportable audit trail for compliance.
+
+8. Frontend UX & Visualization
+8.1 Role-Based Workflows
+
+LCA Analyst: full access to raw LCI, advanced settings (allocation choices, Monte Carlo runs), detailed reports.
+
+Plant Engineer: quick scenario builder, connect SCADA/ERP, view material/energy hotspots and process improvements.
+
+Policy/Exec: high-level dashboards, KPI summaries, downloadable one-page decision briefs.
+
+8.2 Key UI Components
+
+Guided Scenario Wizard: stepwise inputs (feedstock mix, energy, transport, EoL options).
+
+Sankey Diagram: material/energy flows across cradle→grave per scenario.
+
+Map View: geospatial impact overlays (transport distances, grid carbon intensity).
+
+Scenario Compare: side-by-side impact & circularity metrics; Pareto frontier visualization for multi-objective tradeoff.
+
+Sensitivity Slider: interactively vary key parameters (recycled content, yield) and see real-time results via surrogate model.
+
+Uncertainty Explorer: view Monte Carlo distributions and which inputs drive variance.
+
+Report Generator: ISO-aligned export with methodology, assumptions, and provenance.
+
+8.3 Visualization Templates (examples)
+
+Sankey (material flows); Waterfall (impact contributions); Radar (multi-KPI view); Choropleth (regional footprints); Scatter (Cost vs CO₂ with point size = recycled content).
+
+9. APIs & Integration
+9.1 API Design
+
+OpenAPI (REST) core with endpoints:
+
+POST /ingest — upload dataset (returns source_id).
+
+GET /process/{id} — fetch process metadata.
+
+POST /scenario/evaluate — run LCA (sync/async).
+
+GET /scenario/{id}/results — results & provenance.
+
+POST /impute — ML imputation service.
+
+GET /models — model registry metadata.
+
+GraphQL optional for flexible client queries.
+
+Webhooks for async job completion.
+
+Rate limits & quotas per tenant.
+
+9.2 ERP / SCADA Integration
+
+Connectors: SFTP, REST, OPC-UA agent, MQTT agent.
+
+Data mapping: template mapping tool to map ERP item codes → canonical material IDs.
+
+Edge agent for secure local data aggregation where cloud pushes are restricted.
+
+9.3 Security
+
+Auth: OAuth2 / OIDC + SSO.
+
+RBAC: roles (Admin, Analyst, Engineer, Viewer) with fine-grained permissions.
+
+Encryption: TLS for transport; AES-256 for data at rest.
+
+Audit logs: immutable, exportable.
+
+Pen tests & vulnerability scanning (regular scheduled).
+
+9.4 CI/CD
+
+GitOps: Branch → PR → CI (unit tests, lint) → staging → automated integration tests → canary → production.
+
+IaC: Terraform modules, DR tests.
+
+Auto deployment: GitHub Actions / GitLab runners.
+
+10. Pilot & Validation Plan
+10.1 Pilot partner types (1–3)
+
+Primary aluminium smelter (large) — provides plant energy, process yields.
+
+Aluminium recycling plant — real data on scrap composition and yields.
+
+Mining company (bauxite / ore processing) — upstream.
+
+10.2 Pilot steps
+
+Onboard partner & sign NDA + MOU.
+
+Data discovery & mapping (1 month).
+
+Ingest partner data to staging; run validation.
+
+Run baseline LCA (partner data) and ML imputation on missing values.
+
+Co-design scenarios (e.g., increase scrap by 10–30%).
+
+Workshops (2 rounds): interpretation training, sensitivity analysis, roadmap recommendations.**
+
+Refinement & retrain models using partner data.
+
+Acceptance & documented case study.
+
+10.3 Sensitivity analysis & retraining
+
+Run Monte Carlo; identify top 10 drivers of uncertainty; perform targeted data collection to reduce uncertainty; retrain models and quantify improvements.
+
+10.4 Pilot acceptance criteria (example)
+
+Functional: Scenario creation, LCA run, report export works.
+
+Accuracy: For at least 1 core KPI (GWP per t Al), platform estimate within ±15% of partner measured/validated case once boundaries matched.
+
+Usability: At least 2 pilot users rate platform ≥ 4/5 on usefulness.
+
+Security: Data access controls tested and passed.
+
+Documentation: Signed pilot report and one case study.
+
+11. Deployment & Governance
+11.1 Cloud infra setup & ops
+
+Prod: multi-AZ VPC, EKS cluster, RDS/Aurora, S3 with lifecycle rules.
+
+Staging/Test: isolated accounts.
+
+DR: snapshot backups, cross-region replication of critical data.
+
+K8s: autoscaling, resource quotas, HPA for model pods.
+
+11.2 Model governance
+
+Model registry (MLflow) recording training data hash, code commit, metrics, owner.
+
+Approval flow to deploy model versions to production.
+
+Monitoring: data drift, performance decay, scheduled retraining.
+
+Explainability audit: store SHAP outputs for sample predictions.
+
+11.3 Backups & SLA
+
+Backups: DB daily snapshots, S3 versioning.
+
+SLA: 99.9% availability target; emergency rollback procedures documented.
+
+11.4 Scaling roadmap to multiple metals
+
+Plugin architecture: metal-specific libraries (aluminium core first).
+
+Canonical mapping: define metal template with process library (smelting, electrolysis, casting, recycling).
+
+Onboard additional metals: add LCI modules, validation cases, and ML retraining.
+
+12. Team, Hiring Plan & Org Chart
+12.1 Roles for core 6–8 person team (MVP)
+
+Product Owner (PO) / Project Lead — 1 (FT)
+
+LCA Scientist / Domain Expert — 1 (FT)
+
+ML Engineer / Data Scientist — 1 (FT)
+
+Data Engineer — 1 (FT)
+
+Full-stack Developer — 1 (FT)
+
+UX Designer / Frontend — 1 (FT)
+
+DevOps / MLOps Engineer — 1 (FT) (can be combined with QA for small teams)
+
+Hiring plan: hire PO & LCA scientist first (Months 0–1), then data/ML engineers + full-stack + UX (Months 1–3), DevOps in Month 2 to set infra.
+
+12.2 Org Chart (simple)
+PO
+├─ LCA Scientist
+├─ ML Engineer
+├─ Data Engineer
+├─ Fullstack Dev
+├─ UX Designer
+└─ DevOps/MLOps
+
+12.3 Responsibilities (summary)
+
+PO: prioritization, stakeholder liaison, pilot partner management.
+
+LCA Scientist: model validation, ISO compliance, report QA.
+
+ML Engineer: imputation/surrogate models, training pipelines.
+
+Data Engineer: ingestion, ETL, data catalog.
+
+Fullstack Dev: API & frontend features.
+
+UX Designer: flows & visualizations.
+
+DevOps: infra, CI/CD, security.
+
+13. Budget Estimates (high level)
+
+Personnel cost example for 7-person team (global avg) — 12 months incl. 25% overheads:
+
+Annual Personnel (salary+benefits): USD ~950,000
+(detailed breakdown provided in appendix)
+
+MVP (6–9 months)
+
+Personnel (pro-rated): USD 475k–712.5k
+
+Infrastructure & cloud: USD 30k–120k
+
+Data acquisition & licensing: USD 20k–60k
+
+Pilot costs & travel/workshops: USD 20k–60k
+
+Legal/compliance (NDA/MOU, data agreements): USD 5k–20k
+
+Contingency (10–15%): USD 50k–100k
+Total MVP range: USD 0.6M – 1.0M
+
+Production rollout (12–18 months)
+
+Personnel (12 months): USD 950k
+
+Infra & ML training compute: USD 150k – 400k
+
+Data licensing & ingestion services: USD 80k – 200k
+
+Pilots & integration: USD 100k – 300k
+
+Compliance, certifications (SOC2/ISO): USD 40k – 100k
+
+Ops & maintenance (first year): USD 150k – 300k
+Total production range: USD 1.5M – 3.0M
+
+(These are indicative; exact costs depend on local salaries, cloud discounts, licensing choices and pilot scope.)
+
+14. Timelines — 12–18 month Gantt (high level)
+
+MVP (6–9 months) — deliverables:
+
+Month 0: Team hired, infra baseline.
+
+Months 1–2: Requirements, data templates, initial ingest.
+
+Months 3–4: LCA core & basic ML imputer.
+
+Months 4–6: Backend APIs, basic UI, Sankey, scenario compare.
+
+Months 6–9: Pilot onboarding, validation, MVP acceptance.
+
+Production (12–18 months) — add:
+
+Months 9–12: Model hardening, multi-tenant, security/compliance.
+
+Months 12–15: Additional metals onboarding (copper), extended KPIs.
+
+Months 15–18: Full rollout, documentation, commercialization.
+
+(Deliverable Gantt chart can be exported to MS Project/Excel upon request.)
+
+15. Communication & Business Outputs
+15.1 Executive 1-page brief (template)
+
+Problem statement (2 lines)
+
+Proposed solution (2 lines)
+
+Key benefits (3 bullets: emissions, cost, policy alignment)
+
+MVP ask (budget & timeline)
+
+Pilot partners (list)
+
+Call to action (sign MOU)
+
+(A ready PDF one-pager will be produced as part of Phase 1.)
+
+15.2 10-slide investor / policy deck outline
+
+Title & ask
+
+Problem & opportunity (metals sector emissions & circularity gap)
+
+Solution overview (platform + AI)
+
+Product demo screenshots / mockups (Sankey, compare)
+
+Technology & IP differentiation (ML + ISO compliance)
+
+Market & pilots (aluminium focus)
+
+Business model (SaaS + professional services)
+
+Roadmap & milestones (MVP → Prod)
+
+Team & hiring plan
+
+Financials & ask
+
+16. Templates (ready-to-use drafts)
+
+A. Data-sharing NDA (short form) — use with legal review
+
+DATA SHARING NON-DISCLOSURE AGREEMENT
+
+This Data Sharing NDA ("Agreement") is entered into as of [Date] by and between:
+[Provider Name] ("Provider") and [Recipient Name] ("Recipient").
+
+1. Purpose: Recipient will receive and use Provider's data for the purpose of pilot LCA analysis and platform validation.
+2. Definitions: "Confidential Data" includes plant data, process flows, material compositions, operating parameters.
+3. Obligations: Recipient shall (a) use data only for Purpose; (b) restrict access to authorized personnel; (c) not disclose to third parties without consent; (d) apply reasonable security measures.
+4. Term: This Agreement continues for [2] years from Effective Date.
+5. Return/Destruction: Upon request or end of term, Recipient will return or delete Confidential Data and certify destruction.
+6. Liability & Governing Law: [standard clause]
+7. Signatures: Authorized signatories
+
+[Provider] ______________________ Date _____
+[Recipient] _____________________ Date _____
+
+
+B. Pilot MOU (summary) — non-binding outline
+
+MEMORANDUM OF UNDERSTANDING (Pilot)
+
+Parties: [Platform Team] and [Industry Partner]
+
+Objective: Conduct a pilot to validate AI-LCA platform for aluminium processes.
+
+Scope:
+- Data scope & duration
+- Deliverables: initial LCA report, recommendations, workshop
+- Roles: Provider (platform, analysis), Partner (data access, SME support)
+- Timeline: Start [date], Duration 3 months
+- Confidentiality: NDA (attached)
+- Costs: [cost sharing model]
+- Success criteria: see attached pilot acceptance criteria
+
+Signed:
+Provider: ___________  Date
+Partner: ____________  Date
+
+
+C. ISO-aligned LCA Report Template (outline)
+
+Title & version
+
+Executive summary (key results + recommendations)
+
+Goal and scope (functional unit, system boundaries, allocation) — ISO14040/44 reference
+
+Inventory analysis (data sources, provenance, assumptions)
+
+Impact assessment (GWP, CED, water, resource depletion) with units & uncertainty
+
+Circularity KPIs (recycled content, MCI, recovery)
+
+Interpretation & sensitivity analysis
+
+Limitations & data quality assessment (compliance statement)
+
+Appendices: data tables, model versions, provenance logs, raw results
+
+D. Instruction to AI (System prompt for internal use)
+
+You are the AI assistant inside the Platform. For any LCA/imputation request:
+- Use canonical schema; require provenance field.
+- If data missing, attempt ML imputation; return prediction, 95% PI, method, and model_version.
+- If ML confidence < 60%, apply conservative rule and flag "low_confidence".
+- For scenario runs, compute GWP, CED, water, and circularity KPIs; return structured JSON with provenance and visual assets metadata.
+- Provide human-readable summary (2–4 sentences) and an ISO-aligned report snippet.
+
+17. Acceptance & Success Metrics (project KPIs)
+
+MVP delivered with core features and pilot acceptance (see Pilot AC).
+
+ML imputer reduces missing-value uncertainty by ≥ 25% (measured via PI width reduction).
+
+At least 1 industry partner adopts platform for a published case study within 9 months.
+
+User satisfaction (SUS) ≥ 70 among pilot users.
+
+Platform produces ISO-aligned report automatically from scenario inputs.
+
+18. Risks & Mitigations (top 6)
+
+Data availability & quality — Mitigation: conservative defaults, ML imputation, active partner data agreements.
+
+Partner procurement delays — Mitigation: parallel onboarding of 2 partners, contract templates ready.
+
+Model trust / regulatory scrutiny — Mitigation: full provenance, conservative fallbacks, independent validation.
+
+Cost overruns for ML compute — Mitigation: use surrogate models & spot instances for large training.
+
+Security / data residency — Mitigation: region-specific deployments, strong RBAC, legal reviews.
+
+Scope creep — Mitigation: strict MVP definition and PO gate reviews.
+
+Appendices (selected)
+Appendix A — Sample Canonical JSON snippet (Process)
+{
+  "process_id": "proc-uuid-0001",
+  "name": "Aluminium smelter - Hall-Héroult primary",
+  "location": {"country":"IN","region":"West"},
+  "unit": "1 tonne Al",
+  "year": 2023,
+  "inputs": [
+    {"material_id":"bauxite-ore","amount":4000,"unit":"kg","uncertainty":{"dist":"triangular","params":[3800,4000,4200]}},
+    {"material_id":"electricity","amount":15000,"unit":"MJ","uncertainty":{"dist":"normal","params":[15000,1000]}}
+  ],
+  "outputs":[
+    {"flow_id":"aluminium","amount":1000,"unit":"kg"}
+  ],
+  "provenance":{"source_id":"plant-2023-01","uploader":"plant_eng","confidence":0.85}
+}
+
+Appendix B — Example acceptance test (phase 3 LCA engine)
+
+Given: validated input dataset for 1 tonne Al
+
+When: run LCA with system boundary cradle-to-gate
+
+Then: platform returns GWP value within ±10% of benchmark (peer LCA study with matched assumptions) and a PDF ISO report including provenance.
+
+Next steps (recommended immediate actions)
+
+Approve project charter & budget for MVP (recommended: USD 0.8M).
+
+Sign one pilot MOU with aluminium partner (start date T+1mo).
+
+Hire PO & LCA scientist (T+0 to T+1mo).
+
+Stand up minimal infra (K8s, S3, Postgres) and ingest initial public LCI for aluminium as seed data.

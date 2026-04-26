@@ -1,0 +1,2309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI/ML Pipeline Interactive Flow - LCA Tool</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+    <style>
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        @keyframes flow {
+            0% { transform: translateX(-100%); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .pulse { animation: pulse 2s infinite; }
+        .flow-animation { animation: flow 3s infinite; }
+        
+        .slide { display: none; min-height: 100vh; }
+        .slide.active { display: flex; }
+        
+        .data-flow-line {
+            background: linear-gradient(90deg, transparent, #3b82f6, transparent);
+            height: 4px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .tooltip {
+            position: absolute;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 8px 12px;
+            border-radius: 6px;
+            font-size: 14px;
+            z-index: 1000;
+            display: none;
+            max-width: 250px;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        .tooltip.show {
+            display: block;
+        }
+        
+        .info-btn {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            color: white;
+            border-radius: 50%;
+            font-size: 12px;
+            cursor: help;
+            margin-left: 4px;
+        }
+        
+        .glossary-term {
+            border-bottom: 1px dotted #3b82f6;
+            cursor: help;
+            position: relative;
+        }
+        
+        .scenario-selector {
+            position: fixed;
+            top: 80px;
+            right: 20px;
+            background: white;
+            border-radius: 8px;
+            padding: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 40;
+        }
+        
+        .help-overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0,0,0,0.8);
+            z-index: 9999;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .help-overlay.show {
+            display: flex;
+        }
+        
+        .json-display {
+            background: #1e293b;
+            color: #94a3b8;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            position: relative;
+        }
+        
+        .json-display .json-key {
+            color: #7dd3fc;
+        }
+        
+        .json-display .json-string {
+            color: #86efac;
+        }
+        
+        .json-display .json-number {
+            color: #fbbf24;
+        }
+        
+        .json-display .json-boolean {
+            color: #f472b6;
+        }
+        
+        .json-toggle {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #3b82f6;
+            color: white;
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            cursor: pointer;
+        }
+        
+        .model-card {
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+        
+        .model-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+        
+        .parameter-slider {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 8px;
+            background: #e5e7eb;
+            outline: none;
+            border-radius: 4px;
+        }
+        
+        .parameter-slider::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 20px;
+            height: 20px;
+            background: #3b82f6;
+            cursor: pointer;
+            border-radius: 50%;
+        }
+        
+        .confidence-bar {
+            background: linear-gradient(90deg, #ef4444 0%, #eab308 50%, #22c55e 100%);
+            height: 8px;
+            border-radius: 4px;
+            position: relative;
+        }
+        
+        .confidence-indicator {
+            position: absolute;
+            width: 4px;
+            height: 16px;
+            background: #1f2937;
+            top: -4px;
+            border-radius: 2px;
+            transition: left 0.3s ease;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-900">
+    
+    <!-- Navigation Header -->
+    <nav class="fixed top-0 left-0 right-0 bg-white shadow-lg z-50 px-6 py-4">
+        <div class="flex items-center justify-between max-w-7xl mx-auto">
+            <h1 class="text-2xl font-bold text-blue-600">AI/ML Pipeline Explorer</h1>
+            
+            <!-- Progress Bar -->
+            <div class="flex-1 mx-8">
+                <div class="bg-gray-200 rounded-full h-3 relative">
+                    <div id="progressBar" class="bg-blue-600 h-3 rounded-full transition-all duration-500" style="width: 7.7%"></div>
+                    <div class="flex justify-between absolute top-5 left-0 right-0 text-xs">
+                        <span>Start</span>
+                        <span>Gap-Fill</span>
+                        <span>EF Select</span>
+                        <span>Surrogates</span>
+                        <span>Circularity</span>
+                        <span>Forecast</span>
+                        <span>Anomaly</span>
+                        <span>Optimize</span>
+                        <span>Complete</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Navigation Controls -->
+            <div class="flex items-center gap-4">
+                <button onclick="toggleHelp()" class="px-3 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition" title="Help (H)">
+                    ?
+                </button>
+                <button onclick="previousSlide()" class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 transition">
+                    ← Previous
+                </button>
+                <span id="slideIndicator" class="font-medium">1 / 10</span>
+                <button onclick="nextSlide()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                    Next →
+                </button>
+                <button onclick="exportToPDF()" class="px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition" title="Export (E)">
+                    📄
+                </button>
+            </div>
+        </div>
+    </nav>
+    
+    <!-- Scenario Selector -->
+    <div class="scenario-selector">
+        <label class="block text-sm font-bold mb-2">Load Scenario:</label>
+        <select id="scenarioSelect" onchange="loadScenario()" class="w-full px-3 py-2 border rounded-lg text-sm">
+            <option value="default">Default (India Al)</option>
+            <option value="high-recycling">High Recycling (90%)</option>
+            <option value="renewable">100% Renewable Grid</option>
+            <option value="copper">Copper Production</option>
+            <option value="worst-case">Worst Case</option>
+            <option value="best-case">Best Practice</option>
+        </select>
+        <button onclick="shareScenario()" class="mt-2 w-full px-3 py-1 bg-blue-500 text-white rounded text-sm hover:bg-blue-600">
+            🔗 Share Scenario
+        </button>
+    </div>
+    
+    <!-- Help Overlay -->
+    <div id="helpOverlay" class="help-overlay">
+        <div class="bg-white rounded-xl p-8 max-w-4xl max-h-[80vh] overflow-y-auto">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold">Quick Help & Glossary</h2>
+                <button onclick="toggleHelp()" class="text-2xl hover:text-gray-600">×</button>
+            </div>
+            
+            <div class="grid grid-cols-2 gap-6">
+                <div>
+                    <h3 class="font-bold text-lg mb-3">Keyboard Shortcuts</h3>
+                    <ul class="space-y-2 text-sm">
+                        <li><kbd class="px-2 py-1 bg-gray-200 rounded">←</kbd> Previous slide</li>
+                        <li><kbd class="px-2 py-1 bg-gray-200 rounded">→</kbd> Next slide</li>
+                        <li><kbd class="px-2 py-1 bg-gray-200 rounded">H</kbd> Toggle help</li>
+                        <li><kbd class="px-2 py-1 bg-gray-200 rounded">E</kbd> Export to PDF</li>
+                        <li><kbd class="px-2 py-1 bg-gray-200 rounded">S</kbd> Share scenario</li>
+                        <li><kbd class="px-2 py-1 bg-gray-200 rounded">ESC</kbd> Return to overview</li>
+                        <li><kbd class="px-2 py-1 bg-gray-200 rounded">1-9</kbd> Jump to model</li>
+                    </ul>
+                </div>
+                
+                <div>
+                    <h3 class="font-bold text-lg mb-3">Key Terms</h3>
+                    <dl class="space-y-2 text-sm">
+                        <dt class="font-bold">LCA</dt>
+                        <dd class="ml-4 text-gray-600">Life Cycle Assessment - Environmental impact analysis</dd>
+                        
+                        <dt class="font-bold">MCI</dt>
+                        <dd class="ml-4 text-gray-600">Material Circularity Indicator (0=linear, 1=circular)</dd>
+                        
+                        <dt class="font-bold">EF</dt>
+                        <dd class="ml-4 text-gray-600">Emission Factor - CO₂ per unit energy/material</dd>
+                        
+                        <dt class="font-bold">P10/P90</dt>
+                        <dd class="ml-4 text-gray-600">10th/90th percentile confidence intervals</dd>
+                        
+                        <dt class="font-bold">NDCG</dt>
+                        <dd class="ml-4 text-gray-600">Normalized Discounted Cumulative Gain (ranking metric)</dd>
+                    </dl>
+                </div>
+            </div>
+            
+            <div class="mt-6">
+                <h3 class="font-bold text-lg mb-3">How to Use This Tool</h3>
+                <ol class="list-decimal list-inside space-y-2 text-sm text-gray-700">
+                    <li>Navigate through models using arrow keys or navigation buttons</li>
+                    <li>Adjust parameters using sliders to see real-time impact</li>
+                    <li>Click on models in the pipeline view to jump directly</li>
+                    <li>Load different scenarios from the dropdown menu</li>
+                    <li>Hover over terms for quick definitions</li>
+                    <li>Export results as PDF for reports</li>
+                </ol>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Tooltip Container -->
+    <div id="tooltip" class="tooltip"></div>
+    
+    <!-- Main Content Area -->
+    <main class="pt-24 px-6">
+        
+        <!-- Slide 0: Overview -->
+        <div id="slide-0" class="slide active">
+            <div class="max-w-7xl mx-auto w-full">
+                <div class="text-center mb-12">
+                    <h2 class="text-4xl font-bold mb-4">AI-Driven LCA Pipeline</h2>
+                    <p class="text-xl text-gray-600">Interactive journey through 13 AI/ML models for metallurgy sustainability</p>
+                </div>
+                
+                <!-- Pipeline Overview Diagram -->
+                <div class="bg-white rounded-xl shadow-xl p-8">
+                    <div class="grid grid-cols-4 gap-4">
+                        <div class="model-card bg-blue-50 p-4 rounded-lg border-2 border-blue-200">
+                            <div class="text-lg font-bold text-blue-800">Input Phase</div>
+                            <ul class="mt-2 text-sm text-gray-700">
+                                <li>• Plant data</li>
+                                <li>• Process parameters</li>
+                                <li>• Regional context</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="model-card bg-green-50 p-4 rounded-lg border-2 border-green-200">
+                            <div class="text-lg font-bold text-green-800">Processing Phase</div>
+                            <ul class="mt-2 text-sm text-gray-700">
+                                <li>• Gap-filling (Model 1)</li>
+                                <li>• EF Selection (Model 2)</li>
+                                <li>• Surrogates (Models 3-5)</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="model-card bg-purple-50 p-4 rounded-lg border-2 border-purple-200">
+                            <div class="text-lg font-bold text-purple-800">Analysis Phase</div>
+                            <ul class="mt-2 text-sm text-gray-700">
+                                <li>• Circularity (Model 6)</li>
+                                <li>• Forecasting (Models 7-11)</li>
+                                <li>• Anomaly Check (Model 12)</li>
+                            </ul>
+                        </div>
+                        
+                        <div class="model-card bg-amber-50 p-4 rounded-lg border-2 border-amber-200">
+                            <div class="text-lg font-bold text-amber-800">Output Phase</div>
+                            <ul class="mt-2 text-sm text-gray-700">
+                                <li>• Optimization (Model 13)</li>
+                                <li>• RAG Enhancement</li>
+                                <li>• Final Report</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Flow Arrows -->
+                    <div class="mt-8 flex justify-center">
+                        <div class="data-flow-line w-full">
+                            <div class="flow-animation absolute inset-0"></div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Example Scenario -->
+                <div class="mt-12 bg-gradient-to-r from-blue-50 to-green-50 rounded-xl p-8">
+                    <h3 class="text-2xl font-bold mb-4">Example Scenario: Aluminum Smelting in India</h3>
+                    <div class="grid grid-cols-2 gap-8">
+                        <div>
+                            <h4 class="font-bold text-lg mb-2">Input Parameters:</h4>
+                            <ul class="space-y-2 text-gray-700">
+                                <li>🏭 <strong>Plant:</strong> 120,000 tonnes/year capacity</li>
+                                <li>♻️ <strong>Recycled Content:</strong> 35%</li>
+                                <li>⚡ <strong>Electricity:</strong> 14,200 kWh/tonne</li>
+                                <li>🌱 <strong>Grid Renewable:</strong> 28%</li>
+                                <li>🔥 <strong>Technology:</strong> Prebaked anode</li>
+                            </ul>
+                        </div>
+                        <div>
+                            <h4 class="font-bold text-lg mb-2">Expected Outputs:</h4>
+                            <ul class="space-y-2 text-gray-700">
+                                <li>💨 <strong>CO₂ Emissions:</strong> ~11.9 kg/kg Al</li>
+                                <li>⚙️ <strong>Energy Use:</strong> ~155 GJ/tonne</li>
+                                <li>💧 <strong>Water Use:</strong> ~95 m³/tonne</li>
+                                <li>🔄 <strong>MCI Score:</strong> ~0.58</li>
+                                <li>📊 <strong>Optimization Potential:</strong> -15% emissions</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="mt-8 text-center">
+                    <button onclick="nextSlide()" class="px-8 py-4 bg-blue-600 text-white text-xl rounded-lg hover:bg-blue-700 transition transform hover:scale-105">
+                        Start Interactive Journey →
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 1: Gap-Filling Ensemble -->
+        <div id="slide-1" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <div class="grid grid-cols-2 gap-8">
+                    <!-- Left: Explanation -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h2 class="text-3xl font-bold mb-4 text-blue-600">Model 1: Gap-Filling Ensemble</h2>
+                        <p class="text-gray-600 mb-6">
+                            This ensemble combines 4 ML models to predict missing LCA parameters with uncertainty quantification.
+                        </p>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">🎯 Purpose
+                                    <span class="info-btn" onmouseover="showTooltip(event, 'Ensemble learning combines multiple models to improve prediction accuracy and provide uncertainty estimates')">i</span>
+                                </h3>
+                                <p>Fill missing data gaps in <span class="glossary-term" onmouseover="showTooltip(event, 'Life Cycle Inventory: Database of inputs/outputs for each process')">Life Cycle Inventory</span> using ensemble learning</p>
+                            </div>
+                            
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">🧠 Models in Ensemble</h3>
+                                <ul class="space-y-1">
+                                    <li>• <span class="glossary-term" onmouseover="showTooltip(event, 'XGBoost: Extreme Gradient Boosting - highly efficient tree-based algorithm')">XGBoost</span> (Tree-based gradient boosting)</li>
+                                    <li>• <span class="glossary-term" onmouseover="showTooltip(event, 'Random Forest: Ensemble of decision trees using bootstrap sampling')">Random Forest</span> (Bagging ensemble)</li>
+                                    <li>• <span class="glossary-term" onmouseover="showTooltip(event, 'ElasticNet: Linear regression with both L1 and L2 penalties')">ElasticNet</span> (Linear with L1+L2 regularization)</li>
+                                    <li>• <span class="glossary-term" onmouseover="showTooltip(event, 'MLP: Multi-Layer Perceptron - basic neural network architecture')">MLP</span> (Neural network with 2 hidden layers)</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">📊 Outputs</h3>
+                                <ul class="space-y-1">
+                                    <li>• Energy use (GJ/tonne)</li>
+                                    <li>• CO₂ emissions (kg/kg)</li>
+                                    <li>• Water consumption (m³/tonne)</li>
+                                    <li>• Waste generation (kg/tonne)</li>
+                                    <li>• Transport emissions (kg)</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Interactive Visualization -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-xl font-bold mb-4">Live Prediction Demo</h3>
+                        
+                        <!-- Input Parameters -->
+                        <div class="space-y-4 mb-6">
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Recycled Content (%)</label>
+                                <input type="range" id="recycled-slider" class="parameter-slider w-full" min="0" max="100" value="35" oninput="updateGapFilling()">
+                                <span id="recycled-value" class="text-sm text-gray-600">35%</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Electricity (kWh/t)</label>
+                                <input type="range" id="electricity-slider" class="parameter-slider w-full" min="10000" max="20000" value="14200" oninput="updateGapFilling()">
+                                <span id="electricity-value" class="text-sm text-gray-600">14,200 kWh/t</span>
+                            </div>
+                            
+                            <div>
+                                <label class="block text-sm font-medium mb-1">Grid Renewable (%)</label>
+                                <input type="range" id="renewable-slider" class="parameter-slider w-full" min="0" max="100" value="28" oninput="updateGapFilling()">
+                                <span id="renewable-value" class="text-sm text-gray-600">28%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Ensemble Voting Animation -->
+                        <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                            <h4 class="font-bold mb-3">Ensemble Predictions</h4>
+                            <div class="space-y-3">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium w-24">XGBoost:</span>
+                                    <div class="flex-1 mx-2 bg-gray-200 rounded-full h-6 relative">
+                                        <div id="xgb-pred" class="bg-blue-500 h-6 rounded-full transition-all duration-500" style="width: 75%"></div>
+                                    </div>
+                                    <span id="xgb-value" class="text-sm w-20 text-right">11.8 kg/kg</span>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium w-24">Random Forest:</span>
+                                    <div class="flex-1 mx-2 bg-gray-200 rounded-full h-6 relative">
+                                        <div id="rf-pred" class="bg-green-500 h-6 rounded-full transition-all duration-500" style="width: 77%"></div>
+                                    </div>
+                                    <span id="rf-value" class="text-sm w-20 text-right">12.1 kg/kg</span>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium w-24">ElasticNet:</span>
+                                    <div class="flex-1 mx-2 bg-gray-200 rounded-full h-6 relative">
+                                        <div id="en-pred" class="bg-purple-500 h-6 rounded-full transition-all duration-500" style="width: 73%"></div>
+                                    </div>
+                                    <span id="en-value" class="text-sm w-20 text-right">11.5 kg/kg</span>
+                                </div>
+                                
+                                <div class="flex items-center justify-between">
+                                    <span class="text-sm font-medium w-24">MLP:</span>
+                                    <div class="flex-1 mx-2 bg-gray-200 rounded-full h-6 relative">
+                                        <div id="mlp-pred" class="bg-amber-500 h-6 rounded-full transition-all duration-500" style="width: 78%"></div>
+                                    </div>
+                                    <span id="mlp-value" class="text-sm w-20 text-right">12.2 kg/kg</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- JSON Request/Response -->
+                        <div class="mt-6">
+                            <div class="flex gap-4">
+                                <button onclick="showJSON('gap-fill', 'request')" class="px-3 py-1 bg-gray-600 text-white rounded text-sm">Show Request JSON</button>
+                                <button onclick="showJSON('gap-fill', 'response')" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Show Response JSON</button>
+                            </div>
+                            <div id="gap-fill-json" class="json-display mt-2 hidden">
+                                <span class="json-toggle" onclick="toggleJSON('gap-fill')">Hide</span>
+                                <pre id="gap-fill-json-content"></pre>
+                            </div>
+                        </div>
+                        
+                        <!-- Final Output with Uncertainty -->
+                        <div class="bg-gradient-to-r from-blue-50 to-green-50 p-6 rounded-lg mt-4">
+                            <h4 class="font-bold mb-3">Ensemble Output (with uncertainty)</h4>
+                            <div class="grid grid-cols-2 gap-4">
+                                <div class="bg-white p-3 rounded-lg">
+                                    <span class="text-sm text-gray-600">CO₂ Emissions</span>
+                                    <div class="text-xl font-bold">11.9 kg/kg</div>
+                                    <div class="text-xs text-gray-500">P10: 10.8 | P90: 13.1</div>
+                                </div>
+                                <div class="bg-white p-3 rounded-lg">
+                                    <span class="text-sm text-gray-600">Energy Use</span>
+                                    <div class="text-xl font-bold">155.2 GJ/t</div>
+                                    <div class="text-xs text-gray-500">P10: 146.0 | P90: 165.1</div>
+                                </div>
+                                <div class="bg-white p-3 rounded-lg">
+                                    <span class="text-sm text-gray-600">Water Use</span>
+                                    <div class="text-xl font-bold">95.0 m³/t</div>
+                                    <div class="text-xs text-gray-500">P10: 80.0 | P90: 110.0</div>
+                                </div>
+                                <div class="bg-white p-3 rounded-lg">
+                                    <span class="text-sm text-gray-600">Confidence</span>
+                                    <div class="text-xl font-bold">82%</div>
+                                    <div class="confidence-bar mt-2">
+                                        <div class="confidence-indicator" style="left: 82%"></div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 2: Emission Factor Selector -->
+        <div id="slide-2" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <div class="grid grid-cols-2 gap-8">
+                    <!-- Left: Explanation -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h2 class="text-3xl font-bold mb-4 text-green-600">Model 2: Emission Factor Selector</h2>
+                        <p class="text-gray-600 mb-6">
+                            Learning-to-rank model that selects the most appropriate emission factors based on context.
+                        </p>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">🎯 Purpose</h3>
+                                <p>Rank and select emission factors from candidates based on region, year, technology</p>
+                            </div>
+                            
+                            <div class="bg-blue-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">🔍 Selection Criteria</h3>
+                                <ul class="space-y-1">
+                                    <li>• Geographic relevance</li>
+                                    <li>• Temporal proximity</li>
+                                    <li>• Technology match</li>
+                                    <li>• Data source reliability</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-purple-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">📊 Algorithm</h3>
+                                <p>LightGBM Ranker with NDCG@5 ≥ 0.85</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Data from Previous Model -->
+                        <div class="mt-6 bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
+                            <h3 class="font-bold text-lg mb-2">📥 Input from Gap-Filler</h3>
+                            <ul class="space-y-1 text-sm">
+                                <li>• Energy Use: 155.2 GJ/t</li>
+                                <li>• Process: Aluminium smelting</li>
+                                <li>• Region: India (IN)</li>
+                                <li>• Year: 2025</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Interactive Visualization -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-xl font-bold mb-4">Emission Factor Ranking</h3>
+                        
+                        <!-- Candidate Factors -->
+                        <div class="space-y-3 mb-6">
+                            <div class="bg-gray-50 p-4 rounded-lg border-2 border-gray-200 transition-all hover:border-green-400" id="ef-card-1">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="font-bold">IN Grid 2025 (Forecast)</div>
+                                        <div class="text-sm text-gray-600">0.78 kgCO₂/kWh</div>
+                                        <div class="text-xs text-gray-500">Source: CEA Projection</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-green-600">95%</div>
+                                        <div class="text-xs text-gray-500">Score</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-4 rounded-lg border-2 border-gray-200" id="ef-card-2">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="font-bold">IN Grid 2024 (Actual)</div>
+                                        <div class="text-sm text-gray-600">0.82 kgCO₂/kWh</div>
+                                        <div class="text-xs text-gray-500">Source: CEA Report</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-blue-600">88%</div>
+                                        <div class="text-xs text-gray-500">Score</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-4 rounded-lg border-2 border-gray-200" id="ef-card-3">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="font-bold">Global Average 2024</div>
+                                        <div class="text-sm text-gray-600">0.65 kgCO₂/kWh</div>
+                                        <div class="text-xs text-gray-500">Source: IEA</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-gray-600">62%</div>
+                                        <div class="text-xs text-gray-500">Score</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-4 rounded-lg border-2 border-gray-200" id="ef-card-4">
+                                <div class="flex justify-between items-start">
+                                    <div>
+                                        <div class="font-bold">Asia Pacific 2024</div>
+                                        <div class="text-sm text-gray-600">0.71 kgCO₂/kWh</div>
+                                        <div class="text-xs text-gray-500">Source: Regional Study</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-2xl font-bold text-gray-600">73%</div>
+                                        <div class="text-xs text-gray-500">Score</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- JSON Display -->
+                        <div class="mt-4 mb-4">
+                            <div class="flex gap-4">
+                                <button onclick="showJSON('ef-selector', 'request')" class="px-3 py-1 bg-gray-600 text-white rounded text-sm">Show Request JSON</button>
+                                <button onclick="showJSON('ef-selector', 'response')" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Show Response JSON</button>
+                            </div>
+                            <div id="ef-selector-json" class="json-display mt-2 hidden">
+                                <span class="json-toggle" onclick="toggleJSON('ef-selector')">Hide</span>
+                                <pre id="ef-selector-json-content"></pre>
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Factor -->
+                        <div class="bg-gradient-to-r from-green-50 to-blue-50 p-6 rounded-lg">
+                            <h4 class="font-bold mb-3">✅ Selected Emission Factor</h4>
+                            <div class="bg-white p-4 rounded-lg">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <div class="text-xl font-bold">IN Grid 2025 (Forecast)</div>
+                                        <div class="text-lg text-gray-700">0.78 kgCO₂/kWh</div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm text-gray-600">Confidence</div>
+                                        <div class="text-2xl font-bold text-green-600">74%</div>
+                                    </div>
+                                </div>
+                                <div class="mt-3 pt-3 border-t">
+                                    <div class="text-sm text-gray-600">
+                                        <span class="font-medium">Rationale:</span> Best match for region (IN), year (2025), and technology context
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 3-5: Process Surrogates -->
+        <div id="slide-3" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <h2 class="text-3xl font-bold mb-6 text-center text-purple-600">Models 3-5: Process Surrogates</h2>
+                
+                <!-- Three Surrogates in Parallel -->
+                <div class="grid grid-cols-3 gap-6">
+                    <!-- Alumina Refining Surrogate -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold mb-4 text-orange-600">Alumina Refining</h3>
+                        <div class="bg-orange-50 p-4 rounded-lg mb-4">
+                            <div class="text-sm text-gray-600 mb-2">Process: Bayer Process</div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Bauxite Grade:</span>
+                                    <span class="font-bold">45%</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Temperature:</span>
+                                    <span class="font-bold">250°C</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">NaOH Conc:</span>
+                                    <span class="font-bold">35%</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <div class="text-sm font-medium mb-2">Outputs:</div>
+                            <div class="text-xs space-y-1">
+                                <div>• Energy: 12.5 GJ/t Al₂O₃</div>
+                                <div>• CO₂: 0.8 t/t Al₂O₃</div>
+                                <div>• Red Mud: 1.5 t/t Al₂O₃</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Hall-Héroult Smelting Surrogate -->
+                    <div class="bg-white rounded-xl shadow-lg p-6 border-4 border-purple-400">
+                        <h3 class="text-xl font-bold mb-4 text-purple-600">Hall-Héroult Smelting ⚡</h3>
+                        <div class="bg-purple-50 p-4 rounded-lg mb-4">
+                            <div class="text-sm text-gray-600 mb-2">Active for: Smelting Stage</div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Electricity:</span>
+                                    <span class="font-bold">14,200 kWh/t</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Anode Type:</span>
+                                    <span class="font-bold">Prebaked</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Current Eff:</span>
+                                    <span class="font-bold">94%</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gradient-to-r from-purple-50 to-blue-50 p-3 rounded-lg">
+                            <div class="text-sm font-medium mb-2">Outputs:</div>
+                            <div class="text-xs space-y-1">
+                                <div>• CO₂: 11.8 kg/kg Al</div>
+                                <div>• Energy: 153.5 GJ/t</div>
+                                <div>• Fluoride: 0.5 kg/t</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Sensitivity Heatmap -->
+                        <div class="mt-4 bg-gray-50 p-3 rounded-lg">
+                            <div class="text-xs font-medium mb-2">Sensitivity Analysis:</div>
+                            <div class="grid grid-cols-3 gap-1">
+                                <div class="bg-red-400 h-8 rounded text-xs text-white flex items-center justify-center">Elec</div>
+                                <div class="bg-orange-300 h-8 rounded text-xs text-white flex items-center justify-center">Grid</div>
+                                <div class="bg-yellow-200 h-8 rounded text-xs flex items-center justify-center">Eff</div>
+                            </div>
+                            <div class="text-xs mt-1 text-gray-500">High → Low impact</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Recycling Remelt Surrogate -->
+                    <div class="bg-white rounded-xl shadow-lg p-6">
+                        <h3 class="text-xl font-bold mb-4 text-green-600">Recycling Remelt</h3>
+                        <div class="bg-green-50 p-4 rounded-lg mb-4">
+                            <div class="text-sm text-gray-600 mb-2">Process: Secondary Smelting</div>
+                            <div class="space-y-2">
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Scrap Quality:</span>
+                                    <span class="font-bold">85%</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Furnace Type:</span>
+                                    <span class="font-bold">Reverb</span>
+                                </div>
+                                <div class="flex justify-between">
+                                    <span class="text-sm">Recovery:</span>
+                                    <span class="font-bold">95%</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="bg-gray-50 p-3 rounded-lg">
+                            <div class="text-sm font-medium mb-2">Outputs:</div>
+                            <div class="text-xs space-y-1">
+                                <div>• Energy: 10.7 GJ/t</div>
+                                <div>• CO₂: 0.63 kg/kg</div>
+                                <div>• Dross: 3% of input</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- JSON Display for Surrogates -->
+                <div class="mt-6 bg-gray-100 p-4 rounded-xl">
+                    <div class="flex gap-4 justify-center mb-3">
+                        <button onclick="showJSON('surrogate', 'request')" class="px-3 py-1 bg-gray-600 text-white rounded text-sm">Show Surrogate Request</button>
+                        <button onclick="showJSON('surrogate', 'response')" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Show Surrogate Response</button>
+                    </div>
+                    <div id="surrogate-json" class="json-display hidden">
+                        <span class="json-toggle" onclick="toggleJSON('surrogate')">Hide</span>
+                        <pre id="surrogate-json-content"></pre>
+                    </div>
+                </div>
+                
+                <!-- Data Flow Indicator -->
+                <div class="mt-6 bg-gradient-to-r from-blue-50 to-purple-50 p-6 rounded-xl">
+                    <h3 class="text-lg font-bold mb-3">Process Selection Logic</h3>
+                    <div class="flex items-center justify-center gap-4">
+                        <div class="bg-white px-4 py-2 rounded-lg">
+                            <span class="text-sm">If process_stage == "smelting"</span>
+                        </div>
+                        <span class="text-2xl">→</span>
+                        <div class="bg-purple-100 px-4 py-2 rounded-lg border-2 border-purple-400">
+                            <span class="text-sm font-bold">Activate Hall-Héroult Surrogate</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 4: Circularity Metrics -->
+        <div id="slide-4" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <div class="grid grid-cols-2 gap-8">
+                    <!-- Left: Explanation -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h2 class="text-3xl font-bold mb-4 text-teal-600">Model 6: Circularity Metrics</h2>
+                        <p class="text-gray-600 mb-6">
+                            Calculates Material Circularity Indicator (MCI) and other circular economy metrics.
+                        </p>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-teal-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">🔄 MCI Formula</h3>
+                                <p class="text-sm">MCI = 1 - LFI × (0.9/U)</p>
+                                <p class="text-xs text-gray-600 mt-1">LFI: Linear Flow Index, U: Utility</p>
+                            </div>
+                            
+                            <div class="bg-green-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">📊 Metrics Calculated</h3>
+                                <ul class="space-y-1 text-sm">
+                                    <li>• Recycled Content (%)</li>
+                                    <li>• End-of-Life Recycling Rate</li>
+                                    <li>• Material Efficiency</li>
+                                    <li>• Waste Generation Index</li>
+                                </ul>
+                            </div>
+                        </div>
+                        
+                        <!-- Input from Previous Models -->
+                        <div class="mt-6 bg-yellow-50 p-4 rounded-lg border-2 border-yellow-200">
+                            <h3 class="font-bold text-lg mb-2">📥 Inputs from Pipeline</h3>
+                            <ul class="space-y-1 text-sm">
+                                <li>• Production: 120,000 tonnes</li>
+                                <li>• Process impacts calculated</li>
+                                <li>• Emission factors selected</li>
+                            </ul>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Circular Flow Visualization -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-xl font-bold mb-4">Material Flow Analysis</h3>
+                        
+                        <!-- Interactive Sliders -->
+                        <div class="grid grid-cols-2 gap-4 mb-6">
+                            <div>
+                                <label class="text-sm font-medium">Recycled Content</label>
+                                <input type="range" id="mci-recycled" class="parameter-slider w-full" min="0" max="100" value="35" oninput="updateMCI()">
+                                <span id="mci-recycled-value" class="text-xs">35%</span>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium">EoL Recycling</label>
+                                <input type="range" id="mci-eol" class="parameter-slider w-full" min="0" max="100" value="70" oninput="updateMCI()">
+                                <span id="mci-eol-value" class="text-xs">70%</span>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium">Product Lifetime</label>
+                                <input type="range" id="mci-lifetime" class="parameter-slider w-full" min="1" max="30" value="15" oninput="updateMCI()">
+                                <span id="mci-lifetime-value" class="text-xs">15 years</span>
+                            </div>
+                            <div>
+                                <label class="text-sm font-medium">Waste Ratio</label>
+                                <input type="range" id="mci-waste" class="parameter-slider w-full" min="0" max="50" value="12" oninput="updateMCI()">
+                                <span id="mci-waste-value" class="text-xs">12%</span>
+                            </div>
+                        </div>
+                        
+                        <!-- Circular Diagram -->
+                        <div class="relative bg-gradient-to-br from-teal-50 to-green-50 rounded-xl p-8">
+                            <svg viewBox="0 0 400 300" class="w-full">
+                                <!-- Virgin Material Input -->
+                                <rect x="10" y="100" width="60" height="40" fill="#94a3b8" rx="5"/>
+                                <text x="40" y="125" text-anchor="middle" class="text-xs fill-white font-bold">Virgin</text>
+                                
+                                <!-- Production -->
+                                <rect x="150" y="90" width="100" height="60" fill="#3b82f6" rx="5"/>
+                                <text x="200" y="125" text-anchor="middle" class="text-sm fill-white font-bold">Production</text>
+                                
+                                <!-- Product Use -->
+                                <rect x="300" y="90" width="80" height="60" fill="#8b5cf6" rx="5"/>
+                                <text x="340" y="125" text-anchor="middle" class="text-sm fill-white font-bold">Use</text>
+                                
+                                <!-- Recycling Loop -->
+                                <path d="M 340 150 Q 340 220 200 220 Q 100 220 100 140" 
+                                      stroke="#10b981" stroke-width="3" fill="none" stroke-dasharray="5,5"/>
+                                <text x="200" y="235" text-anchor="middle" class="text-xs fill-green-600 font-bold">Recycling Loop</text>
+                                
+                                <!-- Waste -->
+                                <rect x="320" y="180" width="60" height="30" fill="#ef4444" rx="5"/>
+                                <text x="350" y="200" text-anchor="middle" class="text-xs fill-white">Waste</text>
+                                
+                                <!-- Flow Arrows -->
+                                <path d="M 70 120 L 150 120" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+                                <path d="M 250 120 L 300 120" stroke="#64748b" stroke-width="2" marker-end="url(#arrowhead)"/>
+                                
+                                <!-- Arrow marker -->
+                                <defs>
+                                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+                                    </marker>
+                                </defs>
+                                
+                                <!-- Recycled Input -->
+                                <rect x="10" y="160" width="60" height="40" fill="#10b981" rx="5" id="recycled-box"/>
+                                <text x="40" y="185" text-anchor="middle" class="text-xs fill-white font-bold">Recycled</text>
+                                <path d="M 70 180 L 150 130" stroke="#10b981" stroke-width="2" marker-end="url(#arrowhead-green)"/>
+                                
+                                <defs>
+                                    <marker id="arrowhead-green" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                        <polygon points="0 0, 10 3.5, 0 7" fill="#10b981"/>
+                                    </marker>
+                                </defs>
+                            </svg>
+                        </div>
+                        
+                        <!-- JSON Display -->
+                        <div class="mt-4">
+                            <div class="flex gap-4">
+                                <button onclick="showJSON('circularity', 'request')" class="px-3 py-1 bg-gray-600 text-white rounded text-sm">Show Request</button>
+                                <button onclick="showJSON('circularity', 'response')" class="px-3 py-1 bg-green-600 text-white rounded text-sm">Show Response</button>
+                            </div>
+                            <div id="circularity-json" class="json-display mt-2 hidden">
+                                <span class="json-toggle" onclick="toggleJSON('circularity')">Hide</span>
+                                <pre id="circularity-json-content"></pre>
+                            </div>
+                        </div>
+                        
+                        <!-- MCI Score Display -->
+                        <div class="mt-4 bg-gradient-to-r from-teal-100 to-green-100 p-6 rounded-xl">
+                            <div class="flex justify-between items-center">
+                                <div>
+                                    <h4 class="text-lg font-bold">Material Circularity Indicator</h4>
+                                    <p class="text-sm text-gray-600">Higher score = More circular</p>
+                                </div>
+                                <div class="text-right">
+                                    <div id="mci-score" class="text-4xl font-bold text-teal-600">0.58</div>
+                                    <div class="text-sm text-gray-600">Good</div>
+                                </div>
+                            </div>
+                            <div class="mt-4">
+                                <div class="bg-white rounded-full h-8 relative overflow-hidden">
+                                    <div id="mci-bar" class="bg-gradient-to-r from-red-500 via-yellow-500 to-green-500 h-full transition-all duration-500" style="width: 58%"></div>
+                                </div>
+                                <div class="flex justify-between text-xs mt-1">
+                                    <span>Linear (0.0)</span>
+                                    <span>Circular (1.0)</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 5: Regional Forecasters -->
+        <div id="slide-5" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <h2 class="text-3xl font-bold mb-6 text-center text-indigo-600">Models 7-11: Regional Forecasters</h2>
+                
+                <div class="grid grid-cols-2 gap-8">
+                    <!-- Left: Map -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-xl font-bold mb-4">Select Region for Forecast</h3>
+                        
+                        <!-- Simple World Map -->
+                        <div class="relative bg-blue-50 rounded-lg p-4" style="min-height: 400px;">
+                            <!-- India -->
+                            <div class="absolute cursor-pointer hover:scale-110 transition" style="top: 40%; left: 60%;" onclick="selectRegion('IN')">
+                                <div class="bg-orange-500 text-white px-3 py-2 rounded-lg font-bold shadow-lg" id="region-IN">
+                                    🇮🇳 India
+                                </div>
+                            </div>
+                            
+                            <!-- China -->
+                            <div class="absolute cursor-pointer hover:scale-110 transition" style="top: 30%; left: 70%;" onclick="selectRegion('CN')">
+                                <div class="bg-red-500 text-white px-3 py-2 rounded-lg font-bold shadow-lg" id="region-CN">
+                                    🇨🇳 China
+                                </div>
+                            </div>
+                            
+                            <!-- EU -->
+                            <div class="absolute cursor-pointer hover:scale-110 transition" style="top: 25%; left: 45%;" onclick="selectRegion('EU')">
+                                <div class="bg-blue-600 text-white px-3 py-2 rounded-lg font-bold shadow-lg" id="region-EU">
+                                    🇪🇺 EU
+                                </div>
+                            </div>
+                            
+                            <!-- USA -->
+                            <div class="absolute cursor-pointer hover:scale-110 transition" style="top: 35%; left: 20%;" onclick="selectRegion('US')">
+                                <div class="bg-blue-800 text-white px-3 py-2 rounded-lg font-bold shadow-lg" id="region-US">
+                                    🇺🇸 USA
+                                </div>
+                            </div>
+                            
+                            <!-- Brazil -->
+                            <div class="absolute cursor-pointer hover:scale-110 transition" style="top: 65%; left: 30%;" onclick="selectRegion('BR')">
+                                <div class="bg-green-600 text-white px-3 py-2 rounded-lg font-bold shadow-lg" id="region-BR">
+                                    🇧🇷 Brazil
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Selected Region Info -->
+                        <div class="mt-4 bg-indigo-50 p-4 rounded-lg">
+                            <h4 class="font-bold mb-2">Selected: <span id="selected-region" class="text-indigo-600">India</span></h4>
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div>Current Grid CO₂: <span class="font-bold">620 g/kWh</span></div>
+                                <div>Renewable Share: <span class="font-bold">23.5%</span></div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Forecast Chart -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-xl font-bold mb-4">30-Day Grid Carbon Intensity Forecast</h3>
+                        
+                        <!-- Chart Canvas -->
+                        <canvas id="forecastChart" width="400" height="250"></canvas>
+                        
+                        <!-- Forecast Stats -->
+                        <div class="mt-6 grid grid-cols-3 gap-4">
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <div class="text-xs text-gray-600">Trend</div>
+                                <div class="text-lg font-bold text-green-600">↓ 1.2%</div>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <div class="text-xs text-gray-600">Confidence</div>
+                                <div class="text-lg font-bold text-blue-600">85%</div>
+                            </div>
+                            <div class="bg-gray-50 p-3 rounded-lg text-center">
+                                <div class="text-xs text-gray-600">Volatility</div>
+                                <div class="text-lg font-bold text-amber-600">Medium</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Algorithm Info -->
+                        <div class="mt-4 bg-indigo-50 p-4 rounded-lg">
+                            <h4 class="font-bold mb-2">Forecasting Method</h4>
+                            <p class="text-sm text-gray-700">XGBoost time-series with seasonal decomposition</p>
+                            <p class="text-xs text-gray-600 mt-1">Features: historical patterns, weather, renewable capacity</p>
+                        </div>
+                        
+                        <!-- JSON Display -->
+                        <div class="mt-4">
+                            <div class="flex gap-2">
+                                <button onclick="showJSON('forecast', 'request')" class="px-3 py-1 bg-gray-600 text-white rounded text-xs">Request</button>
+                                <button onclick="showJSON('forecast', 'response')" class="px-3 py-1 bg-green-600 text-white rounded text-xs">Response</button>
+                            </div>
+                            <div id="forecast-json" class="json-display mt-2 hidden">
+                                <span class="json-toggle" onclick="toggleJSON('forecast')">Hide</span>
+                                <pre id="forecast-json-content"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 6: Anomaly Checker -->
+        <div id="slide-6" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <div class="grid grid-cols-2 gap-8">
+                    <!-- Left: Explanation -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h2 class="text-3xl font-bold mb-4 text-red-600">Model 12: Anomaly & Consistency Checker</h2>
+                        <p class="text-gray-600 mb-6">
+                            Detects data quality issues, violations, and triggers human/RAG intervention.
+                        </p>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-red-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">🚨 Detection Methods</h3>
+                                <ul class="space-y-1 text-sm">
+                                    <li>• Isolation Forest for outliers</li>
+                                    <li>• Rule-based physics checks</li>
+                                    <li>• Mass-energy balance validation</li>
+                                    <li>• Range constraint verification</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-orange-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">⚠️ Trigger Thresholds</h3>
+                                <ul class="space-y-1 text-sm">
+                                    <li>• Anomaly score ≥ 0.7</li>
+                                    <li>• Mass imbalance > 5%</li>
+                                    <li>• Value outside 3σ bounds</li>
+                                    <li>• Constraint violations</li>
+                                </ul>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Anomaly Dashboard -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-xl font-bold mb-4">System Health Check</h3>
+                        
+                        <!-- Traffic Light Status -->
+                        <div class="grid grid-cols-4 gap-4 mb-6">
+                            <div class="text-center">
+                                <div class="w-16 h-16 mx-auto rounded-full bg-green-500 flex items-center justify-center">
+                                    <span class="text-white text-2xl">✓</span>
+                                </div>
+                                <p class="text-xs mt-2">Range Check</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-16 h-16 mx-auto rounded-full bg-yellow-500 flex items-center justify-center pulse">
+                                    <span class="text-white text-2xl">!</span>
+                                </div>
+                                <p class="text-xs mt-2">Mass Balance</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-16 h-16 mx-auto rounded-full bg-green-500 flex items-center justify-center">
+                                    <span class="text-white text-2xl">✓</span>
+                                </div>
+                                <p class="text-xs mt-2">Energy Balance</p>
+                            </div>
+                            <div class="text-center">
+                                <div class="w-16 h-16 mx-auto rounded-full bg-red-500 flex items-center justify-center pulse">
+                                    <span class="text-white text-2xl">✗</span>
+                                </div>
+                                <p class="text-xs mt-2">Outlier Detection</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Anomaly Score Gauge -->
+                        <div class="bg-gray-50 p-4 rounded-lg mb-6">
+                            <h4 class="font-bold mb-3">Anomaly Score</h4>
+                            <div class="relative">
+                                <div class="bg-gradient-to-r from-green-400 via-yellow-400 to-red-400 h-8 rounded-full">
+                                    <div class="absolute top-0 left-0 h-8 w-2 bg-black rounded-full" style="left: 78%;"></div>
+                                </div>
+                                <div class="flex justify-between text-xs mt-1">
+                                    <span>Normal (0.0)</span>
+                                    <span class="font-bold">0.78</span>
+                                    <span>Critical (1.0)</span>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Violations List -->
+                        <div class="bg-red-50 border-2 border-red-200 p-4 rounded-lg">
+                            <h4 class="font-bold mb-3 text-red-700">⚠️ Detected Issues</h4>
+                            <ul class="space-y-2 text-sm">
+                                <li class="flex items-center">
+                                    <span class="text-red-500 mr-2">•</span>
+                                    <span>Mass balance: Inputs < Outputs by 6.5%</span>
+                                </li>
+                                <li class="flex items-center">
+                                    <span class="text-red-500 mr-2">•</span>
+                                    <span>Electricity value 25,000 kWh/t exceeds P99 bound</span>
+                                </li>
+                            </ul>
+                            
+                            <div class="mt-4 p-3 bg-yellow-100 rounded-lg border border-yellow-400">
+                                <p class="text-sm font-bold text-yellow-800">🤖 RAG System Activated</p>
+                                <p class="text-xs text-yellow-700 mt-1">Retrieving context for anomaly resolution...</p>
+                            </div>
+                        </div>
+                        
+                        <!-- JSON Display -->
+                        <div class="mt-4">
+                            <div class="flex gap-2">
+                                <button onclick="showJSON('anomaly', 'request')" class="px-3 py-1 bg-gray-600 text-white rounded text-xs">Request</button>
+                                <button onclick="showJSON('anomaly', 'response')" class="px-3 py-1 bg-green-600 text-white rounded text-xs">Response</button>
+                            </div>
+                            <div id="anomaly-json" class="json-display mt-2 hidden">
+                                <span class="json-toggle" onclick="toggleJSON('anomaly')">Hide</span>
+                                <pre id="anomaly-json-content"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 7: Optimization Engine -->
+        <div id="slide-7" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <div class="grid grid-cols-2 gap-8">
+                    <!-- Left: Explanation -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h2 class="text-3xl font-bold mb-4 text-amber-600">Model 13: Optimization Engine</h2>
+                        <p class="text-gray-600 mb-6">
+                            Bayesian optimization finds optimal scenarios balancing emissions and circularity.
+                        </p>
+                        
+                        <div class="space-y-4">
+                            <div class="bg-amber-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">🎯 Optimization Objectives</h3>
+                                <ul class="space-y-1 text-sm">
+                                    <li>• Minimize CO₂ emissions</li>
+                                    <li>• Maximize MCI score</li>
+                                    <li>• Minimize cost</li>
+                                    <li>• Satisfy constraints</li>
+                                </ul>
+                            </div>
+                            
+                            <div class="bg-yellow-50 p-4 rounded-lg">
+                                <h3 class="font-bold text-lg mb-2">⚙️ Algorithm</h3>
+                                <p class="text-sm">Bayesian Optimization with Gaussian Process</p>
+                                <p class="text-xs text-gray-600 mt-1">40 iterations, acquisition: Expected Improvement</p>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Right: Optimization Visualization -->
+                    <div class="bg-white rounded-xl shadow-lg p-8">
+                        <h3 class="text-xl font-bold mb-4">Optimization Results</h3>
+                        
+                        <!-- Parameter Space Exploration -->
+                        <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                            <h4 class="font-bold mb-3">Parameter Space Exploration</h4>
+                            <div class="grid grid-cols-2 gap-2 text-sm">
+                                <div>Iterations: <span class="font-bold">40/40</span></div>
+                                <div>Best found at: <span class="font-bold">Iter 27</span></div>
+                            </div>
+                            
+                            <!-- Simple 2D optimization plot -->
+                            <div class="mt-3 relative bg-gradient-to-br from-blue-100 via-green-100 to-yellow-100 rounded-lg h-32">
+                                <div class="absolute top-4 left-8 w-2 h-2 bg-gray-400 rounded-full"></div>
+                                <div class="absolute top-8 left-16 w-2 h-2 bg-gray-400 rounded-full"></div>
+                                <div class="absolute top-12 left-24 w-2 h-2 bg-gray-400 rounded-full"></div>
+                                <div class="absolute top-16 left-32 w-3 h-3 bg-red-600 rounded-full pulse"></div>
+                                <div class="absolute bottom-2 left-2 text-xs">Recycled %</div>
+                                <div class="absolute top-2 left-2 text-xs">Renewable %</div>
+                            </div>
+                        </div>
+                        
+                        <!-- Top Scenarios -->
+                        <div class="space-y-3 mb-4">
+                            <h4 class="font-bold">Top 3 Scenarios</h4>
+                            
+                            <div class="bg-gradient-to-r from-green-50 to-blue-50 p-3 rounded-lg border-2 border-green-400">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <span class="font-bold text-green-700">🥇 Optimal</span>
+                                        <div class="text-xs text-gray-600 mt-1">
+                                            Recycled: 65% | Renewable: 45%
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold">8.9 kg CO₂/kg</div>
+                                        <div class="text-xs">MCI: 0.64</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-300">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <span class="font-bold text-gray-700">🥈 Alternative 1</span>
+                                        <div class="text-xs text-gray-600 mt-1">
+                                            Recycled: 55% | Renewable: 60%
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold">9.3 kg CO₂/kg</div>
+                                        <div class="text-xs">MCI: 0.59</div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="bg-gray-50 p-3 rounded-lg border border-gray-300">
+                                <div class="flex justify-between items-center">
+                                    <div>
+                                        <span class="font-bold text-gray-700">🥉 Alternative 2</span>
+                                        <div class="text-xs text-gray-600 mt-1">
+                                            Recycled: 75% | Renewable: 35%
+                                        </div>
+                                    </div>
+                                    <div class="text-right">
+                                        <div class="text-sm font-bold">9.7 kg CO₂/kg</div>
+                                        <div class="text-xs">MCI: 0.71</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Trade-off Analysis -->
+                        <div class="bg-amber-50 p-4 rounded-lg">
+                            <h4 class="font-bold mb-2">Trade-off Analysis</h4>
+                            <p class="text-sm">Optimal solution reduces emissions by <span class="font-bold text-green-600">25%</span> while maintaining <span class="font-bold text-blue-600">MCI > 0.6</span></p>
+                            <p class="text-xs text-gray-600 mt-1">Cost increase: +$22/tonne (acceptable)</p>
+                        </div>
+                        
+                        <!-- JSON Display -->
+                        <div class="mt-4">
+                            <div class="flex gap-2">
+                                <button onclick="showJSON('optimizer', 'request')" class="px-3 py-1 bg-gray-600 text-white rounded text-xs">Request</button>
+                                <button onclick="showJSON('optimizer', 'response')" class="px-3 py-1 bg-green-600 text-white rounded text-xs">Response</button>
+                            </div>
+                            <div id="optimizer-json" class="json-display mt-2 hidden">
+                                <span class="json-toggle" onclick="toggleJSON('optimizer')">Hide</span>
+                                <pre id="optimizer-json-content"></pre>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 8: RAG Integration -->
+        <div id="slide-8" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <h2 class="text-3xl font-bold mb-6 text-center text-purple-600">RAG System Activation</h2>
+                
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <div class="grid grid-cols-3 gap-6">
+                        <!-- Trigger Conditions -->
+                        <div class="bg-purple-50 p-6 rounded-lg">
+                            <h3 class="font-bold text-lg mb-4 text-purple-700">🔍 Trigger Conditions</h3>
+                            <ul class="space-y-2 text-sm">
+                                <li class="flex items-center">
+                                    <span class="text-red-500 mr-2">✗</span>
+                                    <span>Uncertainty > 30%</span>
+                                </li>
+                                <li class="flex items-center">
+                                    <span class="text-red-500 mr-2">✗</span>
+                                    <span>Anomaly Score ≥ 0.7</span>
+                                </li>
+                                <li class="flex items-center">
+                                    <span class="text-green-500 mr-2">✓</span>
+                                    <span>Constraint Violations</span>
+                                </li>
+                            </ul>
+                            <div class="mt-4 p-3 bg-red-100 rounded-lg">
+                                <p class="text-sm font-bold text-red-700">RAG Required!</p>
+                            </div>
+                        </div>
+                        
+                        <!-- Retrieval Process -->
+                        <div class="bg-blue-50 p-6 rounded-lg">
+                            <h3 class="font-bold text-lg mb-4 text-blue-700">📚 Document Retrieval</h3>
+                            <div class="space-y-3">
+                                <div class="bg-white p-2 rounded border border-blue-300">
+                                    <p class="text-xs font-bold">ISO 14040:2006</p>
+                                    <p class="text-xs text-gray-600">LCA principles and framework</p>
+                                </div>
+                                <div class="bg-white p-2 rounded border border-blue-300">
+                                    <p class="text-xs font-bold">CEA Grid Report 2024</p>
+                                    <p class="text-xs text-gray-600">India emission factors</p>
+                                </div>
+                                <div class="bg-white p-2 rounded border border-blue-300">
+                                    <p class="text-xs font-bold">IAI Best Practices</p>
+                                    <p class="text-xs text-gray-600">Aluminum production guide</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Enhanced Output -->
+                        <div class="bg-green-50 p-6 rounded-lg">
+                            <h3 class="font-bold text-lg mb-4 text-green-700">✨ Enhanced Response</h3>
+                            <div class="bg-white p-3 rounded-lg border border-green-300">
+                                <p class="text-sm mb-2">
+                                    <span class="font-bold">Emission Factor Validated:</span>
+                                    0.78 kgCO₂/kWh confirmed by CEA 2024 report [1]
+                                </p>
+                                <p class="text-sm mb-2">
+                                    <span class="font-bold">Recommendation:</span>
+                                    Increase recycled content to 65% per optimization analysis [2]
+                                </p>
+                                <p class="text-xs text-gray-600">
+                                    <span class="font-bold">Citations:</span> [1] CEA Report p.47, [2] IAI Circular Economy Guide
+                                </p>
+                            </div>
+                            <div class="mt-3 text-center">
+                                <div class="text-sm font-bold text-green-600">Confidence: 92%</div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- JSON Display for RAG -->
+                    <div class="mt-4 text-center">
+                        <div class="flex gap-2 justify-center">
+                            <button onclick="showJSON('rag', 'request')" class="px-3 py-1 bg-gray-600 text-white rounded text-xs">RAG Request</button>
+                            <button onclick="showJSON('rag', 'response')" class="px-3 py-1 bg-green-600 text-white rounded text-xs">RAG Response</button>
+                        </div>
+                        <div id="rag-json" class="json-display mt-2 hidden text-left">
+                            <span class="json-toggle" onclick="toggleJSON('rag')">Hide</span>
+                            <pre id="rag-json-content"></pre>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Slide 9: Complete Pipeline View -->
+        <div id="slide-9" class="slide">
+            <div class="max-w-7xl mx-auto w-full">
+                <h2 class="text-3xl font-bold mb-6 text-center">Complete AI/ML Pipeline Flow</h2>
+                
+                <div class="bg-white rounded-xl shadow-lg p-8">
+                    <!-- Interactive Pipeline Diagram -->
+                    <svg viewBox="0 0 1200 600" class="w-full">
+                        <!-- Model Boxes -->
+                        <!-- Row 1: Input and Processing -->
+                        <rect x="50" y="50" width="120" height="60" fill="#3b82f6" rx="5" class="cursor-pointer hover:opacity-80" onclick="goToSlide(1)"/>
+                        <text x="110" y="85" text-anchor="middle" class="text-sm fill-white font-bold">Gap-Filling</text>
+                        
+                        <rect x="220" y="50" width="120" height="60" fill="#10b981" rx="5" class="cursor-pointer hover:opacity-80" onclick="goToSlide(2)"/>
+                        <text x="280" y="85" text-anchor="middle" class="text-sm fill-white font-bold">EF Selector</text>
+                        
+                        <rect x="390" y="50" width="180" height="60" fill="#8b5cf6" rx="5" class="cursor-pointer hover:opacity-80" onclick="goToSlide(3)"/>
+                        <text x="480" y="85" text-anchor="middle" class="text-sm fill-white font-bold">Process Surrogates</text>
+                        
+                        <!-- Row 2: Analysis -->
+                        <rect x="50" y="200" width="120" height="60" fill="#14b8a6" rx="5" class="cursor-pointer hover:opacity-80" onclick="goToSlide(4)"/>
+                        <text x="110" y="235" text-anchor="middle" class="text-sm fill-white font-bold">Circularity</text>
+                        
+                        <rect x="220" y="200" width="180" height="60" fill="#6366f1" rx="5" class="cursor-pointer hover:opacity-80" onclick="goToSlide(5)"/>
+                        <text x="310" y="235" text-anchor="middle" class="text-sm fill-white font-bold">Regional Forecast</text>
+                        
+                        <rect x="450" y="200" width="120" height="60" fill="#ef4444" rx="5" class="cursor-pointer hover:opacity-80" onclick="goToSlide(6)"/>
+                        <text x="510" y="235" text-anchor="middle" class="text-sm fill-white font-bold">Anomaly Check</text>
+                        
+                        <!-- Row 3: Optimization and Output -->
+                        <rect x="220" y="350" width="120" height="60" fill="#f59e0b" rx="5" class="cursor-pointer hover:opacity-80" onclick="goToSlide(7)"/>
+                        <text x="280" y="385" text-anchor="middle" class="text-sm fill-white font-bold">Optimizer</text>
+                        
+                        <rect x="390" y="350" width="120" height="60" fill="#a855f7" rx="5" class="cursor-pointer hover:opacity-80" onclick="goToSlide(8)"/>
+                        <text x="450" y="385" text-anchor="middle" class="text-sm fill-white font-bold">RAG System</text>
+                        
+                        <!-- Flow Arrows -->
+                        <path d="M 170 80 L 220 80" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        <path d="M 340 80 L 390 80" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        <path d="M 570 80 L 600 80 Q 620 80 620 100 L 620 180 Q 620 200 600 200 L 570 200" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        
+                        <path d="M 110 110 L 110 200" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        <path d="M 280 110 L 280 140 L 310 140 L 310 200" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        <path d="M 480 110 L 480 140 L 510 140 L 510 200" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        
+                        <path d="M 170 230 L 220 230" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        <path d="M 400 230 L 450 230" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        
+                        <path d="M 280 260 L 280 350" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        <path d="M 510 260 L 510 320 L 450 320 L 450 350" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        <path d="M 340 380 L 390 380" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        
+                        <!-- Arrow marker definition -->
+                        <defs>
+                            <marker id="arrow" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                                <polygon points="0 0, 10 3.5, 0 7" fill="#64748b"/>
+                            </marker>
+                        </defs>
+                        
+                        <!-- Final Output -->
+                        <rect x="550" y="350" width="150" height="60" fill="#059669" rx="5"/>
+                        <text x="625" y="385" text-anchor="middle" class="text-sm fill-white font-bold">Final Report</text>
+                        <path d="M 510 380 L 550 380" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"/>
+                        
+                        <!-- Processing Time Labels -->
+                        <text x="110" y="30" text-anchor="middle" class="text-xs fill-gray-600">~100ms</text>
+                        <text x="280" y="30" text-anchor="middle" class="text-xs fill-gray-600">~50ms</text>
+                        <text x="480" y="30" text-anchor="middle" class="text-xs fill-gray-600">~150ms</text>
+                        <text x="110" y="180" text-anchor="middle" class="text-xs fill-gray-600">~80ms</text>
+                        <text x="310" y="180" text-anchor="middle" class="text-xs fill-gray-600">~200ms</text>
+                        <text x="510" y="180" text-anchor="middle" class="text-xs fill-gray-600">~120ms</text>
+                        <text x="280" y="330" text-anchor="middle" class="text-xs fill-gray-600">~2000ms</text>
+                        <text x="450" y="330" text-anchor="middle" class="text-xs fill-gray-600">~500ms</text>
+                    </svg>
+                    
+                    <!-- Performance Metrics -->
+                    <div class="mt-8 grid grid-cols-4 gap-4">
+                        <div class="bg-blue-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-blue-600">3.2s</div>
+                            <div class="text-sm text-gray-600">Total Pipeline Time</div>
+                        </div>
+                        <div class="bg-green-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-green-600">13</div>
+                            <div class="text-sm text-gray-600">Models Active</div>
+                        </div>
+                        <div class="bg-purple-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-purple-600">82%</div>
+                            <div class="text-sm text-gray-600">Avg Confidence</div>
+                        </div>
+                        <div class="bg-amber-50 p-4 rounded-lg text-center">
+                            <div class="text-2xl font-bold text-amber-600">25%</div>
+                            <div class="text-sm text-gray-600">Emission Reduction</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+    </main>
+    
+    <script>
+        let currentSlide = 0;
+        const totalSlides = 10; // All slides complete
+        let currentScenario = 'default';
+        
+        // JSON Data Models for each endpoint
+        const jsonExamples = {
+            'gap-fill': {
+                request: {
+                    "scenario": {
+                        "metal_type": "aluminium",
+                        "process_stage": "smelting",
+                        "region_iso": "IN",
+                        "year": 2025,
+                        "production_tonnes": 120000,
+                        "recycled_content_pct": 35,
+                        "electricity_kwh_per_t": 14200,
+                        "fuel_ng_gj_per_t": 0,
+                        "fuel_coal_gj_per_t": 2.5,
+                        "grid_renewable_pct": 28,
+                        "anode_type": "prebaked"
+                    }
+                },
+                response: {
+                    "imputed": {
+                        "energy_use_gj_per_t": {"mean": 155.2, "p10": 146.0, "p90": 165.1},
+                        "co2_kg_per_kg": {"mean": 11.9, "p10": 10.8, "p90": 13.1},
+                        "water_use_m3_per_t": {"mean": 95.0, "p10": 80.0, "p90": 110.0},
+                        "waste_kg_per_t": {"mean": 430.0, "p10": 380.0, "p90": 480.0},
+                        "transport_emissions_kg": {"mean": 85.0, "p10": 60.0, "p90": 110.0}
+                    },
+                    "confidence": 0.82,
+                    "model_versions": {
+                        "xgboost": "1.7.6",
+                        "random_forest": "1.3.1",
+                        "elasticnet": "1.0.2",
+                        "mlp": "2.1.0"
+                    }
+                }
+            },
+            'ef-selector': {
+                request: {
+                    "meta": {
+                        "metal_type": "aluminium",
+                        "process_stage": "smelting",
+                        "region_iso": "IN",
+                        "year": 2025,
+                        "anode_type": "prebaked"
+                    },
+                    "candidates": [
+                        {"factor_id": "EF_IN_2024_GRID_CO2", "value": 0.82, "unit": "kgCO2/kWh", "source": "CEA"},
+                        {"factor_id": "EF_IN_2025_GRID_CO2_EST", "value": 0.78, "unit": "kgCO2/kWh", "source": "Forecast"},
+                        {"factor_id": "EF_GLOBAL_2024", "value": 0.65, "unit": "kgCO2/kWh", "source": "IEA"},
+                        {"factor_id": "EF_APAC_2024", "value": 0.71, "unit": "kgCO2/kWh", "source": "Regional"}
+                    ]
+                },
+                response: {
+                    "selected": {
+                        "factor_id": "EF_IN_2025_GRID_CO2_EST",
+                        "value": 0.78,
+                        "unit": "kgCO2/kWh",
+                        "source": "Forecast",
+                        "confidence": 0.74,
+                        "score": 0.95
+                    },
+                    "alternatives": ["EF_IN_2024_GRID_CO2", "EF_APAC_2024"],
+                    "ranking_scores": [0.95, 0.88, 0.62, 0.73]
+                }
+            },
+            'surrogate': {
+                request: {
+                    "process": "hall_heroult_smelting",
+                    "inputs": {
+                        "electricity_kwh_per_t": 14200,
+                        "grid_renewable_pct": 28,
+                        "recycled_content_pct": 35,
+                        "anode_type": "prebaked",
+                        "current_efficiency_pct": 94
+                    },
+                    "emission_factor": 0.78
+                },
+                response: {
+                    "impacts": {
+                        "co2_kg_per_kg": {"mean": 11.8, "p10": 10.9, "p90": 12.7},
+                        "energy_use_gj_per_t": {"mean": 153.5, "p10": 147.0, "p90": 160.2},
+                        "fluoride_emissions_kg_per_t": {"mean": 0.5, "p10": 0.4, "p90": 0.6}
+                    },
+                    "sensitivities": {
+                        "dCO2_d_electricity_kwh_per_t": 0.0007,
+                        "dCO2_d_grid_renewable_pct": -0.03,
+                        "dCO2_d_recycled_content_pct": -0.05
+                    },
+                    "model_confidence": 0.89
+                }
+            },
+            'circularity': {
+                request: {
+                    "circular_inputs": {
+                        "recycled_content_pct": 35,
+                        "eol_recycling_rate_pct": 70,
+                        "scrap_quality_index": 0.8,
+                        "waste_ratio": 0.12,
+                        "product_lifetime_years": 15,
+                        "material_efficiency_pct": 92
+                    },
+                    "production_data": {
+                        "total_input_tonnes": 130000,
+                        "total_output_tonnes": 120000
+                    }
+                },
+                response: {
+                    "circularity": {
+                        "recycled_content_pct": 35,
+                        "eol_recycling_rate_pct": 70,
+                        "mci": {"mean": 0.58, "p10": 0.52, "p90": 0.63},
+                        "linear_flow_index": 0.42,
+                        "utility_factor": 1.5
+                    },
+                    "recommendations": [
+                        "Increase recycled content to 65% for MCI > 0.7",
+                        "Improve scrap quality to reduce processing losses"
+                    ]
+                }
+            },
+            'forecast': {
+                request: {
+                    "region": "IN",
+                    "horizon_days": 30,
+                    "features": {
+                        "historical_data": "last_365_days",
+                        "weather_forecast": true,
+                        "renewable_capacity_changes": true,
+                        "seasonal_adjustments": true
+                    }
+                },
+                response: {
+                    "grid_co2_g_per_kwh": {
+                        "point_forecast": [620, 615, 612, 610, 608, 605, 603, 600],
+                        "pi90": [[560, 690], [555, 685], [550, 680], [548, 675]],
+                        "trend": -1.2
+                    },
+                    "renewable_share_pct": {
+                        "point_forecast": [23.5, 24.0, 24.2, 24.5],
+                        "pi90": [[18.0, 30.0], [18.5, 30.5]]
+                    },
+                    "model_metrics": {
+                        "mape": 8.3,
+                        "coverage_90": 0.89
+                    }
+                }
+            },
+            'anomaly': {
+                request: {
+                    "input_data": {
+                        "electricity_kwh_per_t": 25000,
+                        "production_tonnes": 120000,
+                        "waste_kg_per_t": 430,
+                        "inputs_total_kg": 115000000,
+                        "outputs_total_kg": 120000000
+                    },
+                    "validation_rules": [
+                        "mass_balance",
+                        "energy_balance",
+                        "range_checks",
+                        "consistency_checks"
+                    ]
+                },
+                response: {
+                    "anomaly_score": 0.78,
+                    "violations": [
+                        {
+                            "rule": "mass_balance",
+                            "severity": "high",
+                            "detail": "Inputs < Outputs by 6.5%",
+                            "expected_range": [-2, 2]
+                        },
+                        {
+                            "rule": "range_check",
+                            "field": "electricity_kwh_per_t",
+                            "severity": "medium",
+                            "detail": "Value 25000 exceeds P99 bound 22000"
+                        }
+                    ],
+                    "isolation_forest_score": 0.72,
+                    "mahalanobis_distance": 4.2,
+                    "action": "trigger_rag"
+                }
+            },
+            'optimizer': {
+                request: {
+                    "objective": "minimize_co2",
+                    "secondary_objectives": ["maximize_mci"],
+                    "bounds": {
+                        "recycled_content_pct": [0, 90],
+                        "grid_renewable_pct": [10, 60],
+                        "electricity_kwh_per_t": [12000, 15000]
+                    },
+                    "constraints": [
+                        {"type": "ineq", "expr": "energy_use_gj_per_t <= 160"},
+                        {"type": "ineq", "expr": "mci >= 0.6"},
+                        {"type": "eq", "expr": "production_tonnes = 120000"}
+                    ],
+                    "budget": {"capex_usd": 500000},
+                    "optimization_params": {
+                        "algorithm": "bayesian_optimization",
+                        "n_iterations": 40,
+                        "acquisition_function": "expected_improvement"
+                    }
+                },
+                response: {
+                    "optimal_solution": {
+                        "decision_variables": {
+                            "recycled_content_pct": 65,
+                            "grid_renewable_pct": 45,
+                            "electricity_kwh_per_t": 13500
+                        },
+                        "objective_values": {
+                            "co2_kg_per_kg": 8.9,
+                            "mci": 0.64
+                        },
+                        "constraint_satisfaction": true
+                    },
+                    "alternatives": [
+                        {
+                            "rank": 2,
+                            "recycled_content_pct": 55,
+                            "grid_renewable_pct": 60,
+                            "co2_kg_per_kg": 9.3,
+                            "mci": 0.59
+                        },
+                        {
+                            "rank": 3,
+                            "recycled_content_pct": 75,
+                            "grid_renewable_pct": 35,
+                            "co2_kg_per_kg": 9.7,
+                            "mci": 0.71
+                        }
+                    ],
+                    "convergence": {
+                        "iterations": 40,
+                        "best_found_at": 27,
+                        "improvement_rate": 0.02
+                    },
+                    "pareto_frontier": [[8.9, 0.64], [9.3, 0.59], [9.7, 0.71]]
+                }
+            },
+            'rag': {
+                request: {
+                    "query": "High uncertainty detected in emission factor selection. Need validation for IN grid 2025 aluminum smelting.",
+                    "context": {
+                        "process": "aluminum_smelting",
+                        "region": "IN",
+                        "year": 2025,
+                        "uncertainty_trigger": "prediction_interval_width > 30%",
+                        "anomaly_score": 0.78
+                    },
+                    "retrieval_params": {
+                        "top_k": 5,
+                        "similarity_threshold": 0.7,
+                        "sources": ["standards", "regulations", "research", "industry_reports"]
+                    }
+                },
+                response: {
+                    "answer": "Based on CEA Report 2024 and JNARDDC guidelines, the emission factor for Indian grid in 2025 is projected at 0.78 kgCO2/kWh, representing a 5% reduction from 2024 levels due to increased renewable capacity. For aluminum smelting with prebaked anodes, additional process emissions of 1.5 kgCO2/kg Al should be considered.",
+                    "sources": [
+                        {
+                            "title": "CEA Grid Emission Report 2024",
+                            "relevance_score": 0.95,
+                            "page": 47,
+                            "url": "https://cea.nic.in/reports/2024/emission_factors.pdf"
+                        },
+                        {
+                            "title": "JNARDDC Aluminum Production Guidelines",
+                            "relevance_score": 0.88,
+                            "section": "4.3",
+                            "url": "https://jnarddc.gov.in/guidelines/aluminum_lca.pdf"
+                        },
+                        {
+                            "title": "ISO 14040:2006 LCA Principles",
+                            "relevance_score": 0.82,
+                            "section": "7.2.3"
+                        }
+                    ],
+                    "confidence": 0.92,
+                    "factors": [
+                        {
+                            "id": "EF_IN_2025_GRID_CO2_VALIDATED",
+                            "value": 0.78,
+                            "unit": "kgCO2/kWh",
+                            "uncertainty": 0.05
+                        }
+                    ],
+                    "recommendations": [
+                        "Use 0.78 kgCO2/kWh for grid emissions",
+                        "Add 1.5 kgCO2/kg for anode consumption",
+                        "Consider seasonal variations (+/- 8%)",
+                        "Update quarterly with CEA reports"
+                    ],
+                    "citations": [1, 2]
+                }
+            }
+        };
+        
+        // Scenario data
+        const scenarios = {
+            'default': {
+                name: 'Default (India Aluminum)',
+                recycled: 35,
+                electricity: 14200,
+                renewable: 28,
+                description: 'Typical aluminum smelting in India'
+            },
+            'high-recycling': {
+                name: 'High Recycling',
+                recycled: 90,
+                electricity: 8000,
+                renewable: 28,
+                description: 'Secondary aluminum with 90% recycled content'
+            },
+            'renewable': {
+                name: '100% Renewable',
+                recycled: 35,
+                electricity: 14200,
+                renewable: 100,
+                description: 'Primary aluminum with clean energy'
+            },
+            'copper': {
+                name: 'Copper Production',
+                recycled: 25,
+                electricity: 8000,
+                renewable: 35,
+                description: 'Copper smelting and refining'
+            },
+            'worst-case': {
+                name: 'Worst Case',
+                recycled: 0,
+                electricity: 18000,
+                renewable: 5,
+                description: 'High emissions scenario'
+            },
+            'best-case': {
+                name: 'Best Practice',
+                recycled: 75,
+                electricity: 12000,
+                renewable: 80,
+                description: 'Industry best practices'
+            }
+        };
+        
+        function showSlide(n) {
+            const slides = document.getElementsByClassName('slide');
+            if (n >= totalSlides) currentSlide = 0;
+            if (n < 0) currentSlide = totalSlides - 1;
+            
+            for (let i = 0; i < slides.length; i++) {
+                slides[i].classList.remove('active');
+            }
+            
+            slides[currentSlide].classList.add('active');
+            
+            // Update progress bar
+            const progress = ((currentSlide + 1) / totalSlides) * 100;
+            document.getElementById('progressBar').style.width = progress + '%';
+            
+            // Update slide indicator
+            document.getElementById('slideIndicator').textContent = `${currentSlide + 1} / ${totalSlides}`;
+            
+            // Animate elements on slide change
+            animateSlideElements();
+        }
+        
+        function nextSlide() {
+            currentSlide++;
+            showSlide(currentSlide);
+        }
+        
+        function previousSlide() {
+            currentSlide--;
+            showSlide(currentSlide);
+        }
+        
+        function animateSlideElements() {
+            // Use GSAP for smooth animations
+            if (typeof gsap !== 'undefined') {
+                gsap.from('.slide.active .model-card', {
+                    duration: 0.5,
+                    y: 30,
+                    opacity: 0,
+                    stagger: 0.1
+                });
+                
+                gsap.from('.slide.active h2', {
+                    duration: 0.5,
+                    x: -30,
+                    opacity: 0
+                });
+            }
+        }
+        
+        function updateGapFilling() {
+            const recycled = document.getElementById('recycled-slider').value;
+            const electricity = document.getElementById('electricity-slider').value;
+            const renewable = document.getElementById('renewable-slider').value;
+            
+            // Update display values
+            document.getElementById('recycled-value').textContent = recycled + '%';
+            document.getElementById('electricity-value').textContent = Number(electricity).toLocaleString() + ' kWh/t';
+            document.getElementById('renewable-value').textContent = renewable + '%';
+            
+            // Simulate model predictions based on inputs
+            const baseCO2 = 11.9;
+            const recycledImpact = (35 - recycled) * 0.05;
+            const electricityImpact = (electricity - 14200) * 0.0007;
+            const renewableImpact = (28 - renewable) * 0.03;
+            
+            const xgbPred = baseCO2 + recycledImpact * 0.9 + electricityImpact + renewableImpact * 0.8;
+            const rfPred = baseCO2 + recycledImpact * 1.1 + electricityImpact * 0.9 + renewableImpact;
+            const enPred = baseCO2 + recycledImpact * 0.8 + electricityImpact * 1.1 + renewableImpact * 0.9;
+            const mlpPred = baseCO2 + recycledImpact + electricityImpact * 0.95 + renewableImpact * 1.05;
+            
+            // Update prediction bars
+            document.getElementById('xgb-pred').style.width = ((xgbPred / 20) * 100) + '%';
+            document.getElementById('rf-pred').style.width = ((rfPred / 20) * 100) + '%';
+            document.getElementById('en-pred').style.width = ((enPred / 20) * 100) + '%';
+            document.getElementById('mlp-pred').style.width = ((mlpPred / 20) * 100) + '%';
+            
+            // Update prediction values
+            document.getElementById('xgb-value').textContent = xgbPred.toFixed(1) + ' kg/kg';
+            document.getElementById('rf-value').textContent = rfPred.toFixed(1) + ' kg/kg';
+            document.getElementById('en-value').textContent = enPred.toFixed(1) + ' kg/kg';
+            document.getElementById('mlp-value').textContent = mlpPred.toFixed(1) + ' kg/kg';
+            
+            // Update JSON data
+            updateJSONData();
+        }
+        
+        // Tooltip functions
+        function showTooltip(event, text) {
+            const tooltip = document.getElementById('tooltip');
+            tooltip.textContent = text;
+            tooltip.classList.add('show');
+            
+            const rect = event.target.getBoundingClientRect();
+            tooltip.style.left = rect.left + 'px';
+            tooltip.style.top = (rect.bottom + 5) + 'px';
+            
+            // Adjust if tooltip goes off screen
+            const tooltipRect = tooltip.getBoundingClientRect();
+            if (tooltipRect.right > window.innerWidth) {
+                tooltip.style.left = (window.innerWidth - tooltipRect.width - 10) + 'px';
+            }
+        }
+        
+        function hideTooltip() {
+            document.getElementById('tooltip').classList.remove('show');
+        }
+        
+        // Hide tooltip on mouseout
+        document.addEventListener('mouseout', (e) => {
+            if (e.target.classList.contains('glossary-term') || e.target.classList.contains('info-btn')) {
+                hideTooltip();
+            }
+        });
+        
+        // Load scenario
+        function loadScenario() {
+            const scenarioId = document.getElementById('scenarioSelect').value;
+            const scenario = scenarios[scenarioId];
+            currentScenario = scenarioId;
+            
+            // Update sliders if on slide 1
+            if (currentSlide === 1) {
+                document.getElementById('recycled-slider').value = scenario.recycled;
+                document.getElementById('electricity-slider').value = scenario.electricity;
+                document.getElementById('renewable-slider').value = scenario.renewable;
+                updateGapFilling();
+            }
+            
+            // Show notification
+            showNotification(`Loaded scenario: ${scenario.name}`);
+        }
+        
+        // Show notification
+        function showNotification(message) {
+            const notification = document.createElement('div');
+            notification.className = 'fixed bottom-4 right-4 bg-green-600 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+            notification.textContent = message;
+            notification.style.animation = 'fadeIn 0.3s ease';
+            document.body.appendChild(notification);
+            
+            setTimeout(() => {
+                notification.remove();
+            }, 3000);
+        }
+        
+        // Toggle help overlay
+        function toggleHelp() {
+            const overlay = document.getElementById('helpOverlay');
+            overlay.classList.toggle('show');
+        }
+        
+        // Export to PDF (simplified - would need proper library in production)
+        function exportToPDF() {
+            const content = {
+                title: 'AI-Driven LCA Pipeline Analysis',
+                date: new Date().toLocaleDateString(),
+                scenario: scenarios[currentScenario],
+                currentModel: currentSlide,
+                results: {
+                    co2: '11.9 kg/kg',
+                    energy: '155.2 GJ/t',
+                    mci: '0.58',
+                    optimization: '25% reduction potential'
+                }
+            };
+            
+            // In production, use jsPDF or similar
+            const dataStr = JSON.stringify(content, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `lca-analysis-${Date.now()}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            showNotification('Report exported (JSON format - PDF in production)');
+        }
+        
+        // Share scenario
+        function shareScenario() {
+            const url = new URL(window.location);
+            url.searchParams.set('scenario', currentScenario);
+            url.searchParams.set('slide', currentSlide);
+            
+            navigator.clipboard.writeText(url.toString()).then(() => {
+                showNotification('Scenario link copied to clipboard!');
+            });
+        }
+        
+        // Enhanced keyboard navigation
+        document.addEventListener('keydown', (e) => {
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+            
+            switch(e.key) {
+                case 'ArrowRight':
+                    nextSlide();
+                    break;
+                case 'ArrowLeft':
+                    previousSlide();
+                    break;
+                case 'Escape':
+                    currentSlide = 0;
+                    showSlide(0);
+                    break;
+                case 'h':
+                case 'H':
+                    toggleHelp();
+                    break;
+                case 'e':
+                case 'E':
+                    exportToPDF();
+                    break;
+                case 's':
+                case 'S':
+                    shareScenario();
+                    break;
+                default:
+                    // Number keys 1-9 jump to slides
+                    if (e.key >= '1' && e.key <= '9') {
+                        const slideNum = parseInt(e.key);
+                        if (slideNum < totalSlides) {
+                            currentSlide = slideNum;
+                            showSlide(currentSlide);
+                        }
+                    }
+            }
+        });
+        
+        function updateMCI() {
+            const recycled = document.getElementById('mci-recycled').value;
+            const eol = document.getElementById('mci-eol').value;
+            const lifetime = document.getElementById('mci-lifetime').value;
+            const waste = document.getElementById('mci-waste').value;
+            
+            // Update display values
+            document.getElementById('mci-recycled-value').textContent = recycled + '%';
+            document.getElementById('mci-eol-value').textContent = eol + '%';
+            document.getElementById('mci-lifetime-value').textContent = lifetime + ' years';
+            document.getElementById('mci-waste-value').textContent = waste + '%';
+            
+            // Calculate MCI
+            const virgin = (100 - recycled) / 100;
+            const unrecoverable = (100 - eol) / 100;
+            const utility = lifetime / 10; // Normalized to 10 year baseline
+            const linearFlow = virgin + unrecoverable;
+            const mci = Math.max(0, Math.min(1, 1 - (linearFlow * 0.9 / utility)));
+            
+            // Update MCI display
+            document.getElementById('mci-score').textContent = mci.toFixed(2);
+            document.getElementById('mci-bar').style.width = (mci * 100) + '%';
+            
+            // Update recycled box opacity
+            const recycledBox = document.getElementById('recycled-box');
+            if (recycledBox) {
+                recycledBox.style.opacity = recycled / 100;
+            }
+        }
+        
+        function selectRegion(region) {
+            // Update selected region display
+            const regionNames = {
+                'IN': 'India',
+                'CN': 'China',
+                'EU': 'European Union',
+                'US': 'United States',
+                'BR': 'Brazil'
+            };
+            
+            document.getElementById('selected-region').textContent = regionNames[region];
+            
+            // Highlight selected region
+            document.querySelectorAll('[id^="region-"]').forEach(el => {
+                el.classList.remove('ring-4', 'ring-yellow-400');
+            });
+            document.getElementById(`region-${region}`).classList.add('ring-4', 'ring-yellow-400');
+            
+            // Update forecast chart
+            updateForecastChart(region);
+        }
+        
+        function updateForecastChart(region) {
+            const ctx = document.getElementById('forecastChart');
+            if (!ctx) return;
+            
+            // Simple forecast visualization using canvas
+            const canvas = ctx.getContext('2d');
+            canvas.clearRect(0, 0, 400, 250);
+            
+            // Draw axes
+            canvas.strokeStyle = '#e5e7eb';
+            canvas.beginPath();
+            canvas.moveTo(40, 210);
+            canvas.lineTo(380, 210);
+            canvas.moveTo(40, 20);
+            canvas.lineTo(40, 210);
+            canvas.stroke();
+            
+            // Draw forecast line
+            const baseValues = {
+                'IN': 620, 'CN': 580, 'EU': 380, 'US': 420, 'BR': 180
+            };
+            const baseValue = baseValues[region] || 500;
+            
+            canvas.strokeStyle = '#3b82f6';
+            canvas.lineWidth = 2;
+            canvas.beginPath();
+            
+            for (let i = 0; i < 30; i++) {
+                const x = 40 + (i * 11);
+                const y = 210 - (baseValue - i * 2 + Math.sin(i * 0.5) * 20) / 3;
+                if (i === 0) canvas.moveTo(x, y);
+                else canvas.lineTo(x, y);
+            }
+            canvas.stroke();
+            
+            // Draw confidence bands
+            canvas.fillStyle = 'rgba(59, 130, 246, 0.1)';
+            canvas.beginPath();
+            for (let i = 0; i < 30; i++) {
+                const x = 40 + (i * 11);
+                const y = 210 - (baseValue - i * 2 + Math.sin(i * 0.5) * 20) / 3;
+                const band = 20;
+                if (i === 0) canvas.moveTo(x, y - band);
+                else canvas.lineTo(x, y - band);
+            }
+            for (let i = 29; i >= 0; i--) {
+                const x = 40 + (i * 11);
+                const y = 210 - (baseValue - i * 2 + Math.sin(i * 0.5) * 20) / 3;
+                const band = 20;
+                canvas.lineTo(x, y + band);
+            }
+            canvas.closePath();
+            canvas.fill();
+        }
+        
+        function goToSlide(slideNumber) {
+            currentSlide = slideNumber;
+            showSlide(currentSlide);
+        }
+        
+        // JSON Display Functions
+        function showJSON(modelType, requestType) {
+            const jsonDisplay = document.getElementById(`${modelType}-json`);
+            const jsonContent = document.getElementById(`${modelType}-json-content`);
+            
+            if (jsonDisplay && jsonContent) {
+                const data = jsonExamples[modelType][requestType];
+                jsonContent.innerHTML = formatJSON(data);
+                jsonDisplay.classList.remove('hidden');
+            }
+        }
+        
+        function toggleJSON(modelType) {
+            const jsonDisplay = document.getElementById(`${modelType}-json`);
+            if (jsonDisplay) {
+                jsonDisplay.classList.add('hidden');
+            }
+        }
+        
+        function formatJSON(obj) {
+            const json = JSON.stringify(obj, null, 2);
+            return json
+                .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+                .replace(/:"([^"]+)"/g, ': <span class="json-string">"$1"</span>')
+                .replace(/:(\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+                .replace(/:(true|false)/g, ': <span class="json-boolean">$1</span>');
+        }
+        
+        // Update JSON data when sliders change
+        function updateJSONData() {
+            if (currentSlide === 1) {
+                const recycled = document.getElementById('recycled-slider').value;
+                const electricity = document.getElementById('electricity-slider').value;
+                const renewable = document.getElementById('renewable-slider').value;
+                
+                // Update gap-fill request JSON
+                jsonExamples['gap-fill'].request.scenario.recycled_content_pct = parseInt(recycled);
+                jsonExamples['gap-fill'].request.scenario.electricity_kwh_per_t = parseInt(electricity);
+                jsonExamples['gap-fill'].request.scenario.grid_renewable_pct = parseInt(renewable);
+                
+                // Update response values based on calculations
+                const baseCO2 = 11.9;
+                const recycledImpact = (35 - recycled) * 0.05;
+                const electricityImpact = (electricity - 14200) * 0.0007;
+                const renewableImpact = (28 - renewable) * 0.03;
+                const newCO2 = baseCO2 + recycledImpact + electricityImpact + renewableImpact;
+                
+                jsonExamples['gap-fill'].response.imputed.co2_kg_per_kg.mean = parseFloat(newCO2.toFixed(1));
+                jsonExamples['gap-fill'].response.imputed.energy_use_gj_per_t.mean = parseFloat((155.2 + electricityImpact * 100).toFixed(1));
+            }
+        }
+        
+        // Load scenario from URL if present
+        function loadFromURL() {
+            const params = new URLSearchParams(window.location.search);
+            const scenario = params.get('scenario');
+            const slide = params.get('slide');
+            
+            if (scenario && scenarios[scenario]) {
+                document.getElementById('scenarioSelect').value = scenario;
+                loadScenario();
+            }
+            
+            if (slide) {
+                currentSlide = parseInt(slide);
+                showSlide(currentSlide);
+            }
+        }
+        
+        // Initialize
+        showSlide(0);
+        loadFromURL();
+        
+        // Initialize forecast chart on page load
+        setTimeout(() => {
+            if (document.getElementById('forecastChart')) {
+                updateForecastChart('IN');
+            }
+        }, 100);
+        
+        // Add hover effects for better UX
+        document.querySelectorAll('.model-card').forEach(card => {
+            card.addEventListener('mouseenter', () => {
+                card.style.transform = 'translateY(-5px) scale(1.02)';
+            });
+            card.addEventListener('mouseleave', () => {
+                card.style.transform = 'translateY(0) scale(1)';
+            });
+        });
+    </script>
+</body>
+</html>

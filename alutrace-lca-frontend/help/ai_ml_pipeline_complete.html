@@ -1,0 +1,1067 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI/ML Pipeline Explorer - Complete Flow</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/prism.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/prism/1.29.0/themes/prism-tomorrow.min.css" rel="stylesheet" />
+    <style>
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        @keyframes flow {
+            0% { stroke-dashoffset: 0; }
+            100% { stroke-dashoffset: -20; }
+        }
+        
+        @keyframes glow {
+            0%, 100% { box-shadow: 0 0 20px rgba(59, 130, 246, 0.5); }
+            50% { box-shadow: 0 0 30px rgba(59, 130, 246, 0.8); }
+        }
+        
+        @keyframes dataFlow {
+            0% { transform: translateX(0); opacity: 0; }
+            50% { opacity: 1; }
+            100% { transform: translateX(100%); opacity: 0; }
+        }
+        
+        .node {
+            transition: all 0.3s ease;
+            cursor: pointer;
+            position: relative;
+        }
+        
+        .node:hover {
+            transform: translateY(-5px);
+            filter: brightness(1.1);
+        }
+        
+        .node.active {
+            animation: pulse 2s infinite;
+            box-shadow: 0 0 30px currentColor;
+        }
+        
+        .flow-line {
+            stroke-dasharray: 5, 5;
+            animation: flow 1s linear infinite;
+        }
+        
+        .json-panel {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            padding: 2px;
+            margin-top: 20px;
+            max-height: 0;
+            overflow: hidden;
+            transition: max-height 0.5s ease-out;
+        }
+        
+        .json-panel.active {
+            max-height: 600px;
+        }
+        
+        .json-content {
+            background: #1e1e1e;
+            border-radius: 10px;
+            padding: 15px;
+            color: #fff;
+            font-family: 'Fira Code', monospace;
+            font-size: 12px;
+            overflow-x: auto;
+        }
+        
+        .data-packet {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: linear-gradient(45deg, #3b82f6, #8b5cf6);
+            border-radius: 50%;
+            animation: dataFlow 2s linear infinite;
+            opacity: 0;
+        }
+        
+        .scenario-dropdown {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+        
+        .status-indicator {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 5px;
+        }
+        
+        .status-pending { background: #fbbf24; }
+        .status-processing { background: #3b82f6; animation: pulse 1s infinite; }
+        .status-complete { background: #10b981; }
+        .status-error { background: #ef4444; }
+        
+        .metric-card {
+            background: linear-gradient(135deg, #f3f4f6 0%, #e5e7eb 100%);
+            border-radius: 12px;
+            padding: 15px;
+            margin: 10px 0;
+            border: 2px solid transparent;
+            transition: all 0.3s ease;
+        }
+        
+        .metric-card:hover {
+            border-color: #8b5cf6;
+            transform: translateX(5px);
+        }
+        
+        .tab-button {
+            padding: 8px 16px;
+            border-radius: 8px;
+            background: #e5e7eb;
+            border: none;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+        
+        .tab-button.active {
+            background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%);
+            color: white;
+        }
+        
+        .code-snippet {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 12px;
+            border-radius: 8px;
+            font-family: 'Fira Code', monospace;
+            font-size: 12px;
+            margin: 10px 0;
+            position: relative;
+        }
+        
+        .copy-button {
+            position: absolute;
+            top: 8px;
+            right: 8px;
+            background: #4b5563;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        .copy-button:hover {
+            background: #6b7280;
+        }
+        
+        /* JSON Syntax Highlighting */
+        .json-key { color: #9cdcfe; }
+        .json-string { color: #ce9178; }
+        .json-number { color: #b5cea8; }
+        .json-boolean { color: #569cd6; }
+        .json-null { color: #569cd6; }
+    </style>
+</head>
+<body class="bg-gradient-to-br from-blue-50 via-purple-50 to-pink-50 min-h-screen">
+    <div class="container mx-auto p-6">
+        <!-- Header -->
+        <div class="bg-white rounded-xl shadow-xl p-6 mb-6">
+            <div class="flex justify-between items-center">
+                <div>
+                    <h1 class="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                        AI/ML Pipeline Explorer
+                    </h1>
+                    <p class="text-gray-600 mt-2">Complete LCA Analysis Pipeline Flow</p>
+                </div>
+                <div class="flex items-center gap-4">
+                    <select id="scenarioSelect" class="scenario-dropdown" onchange="loadScenario()">
+                        <option value="default">Default (India Al)</option>
+                        <option value="high-recycling">High Recycling (90%)</option>
+                        <option value="renewable-grid">100% Renewable Grid</option>
+                        <option value="copper">Copper Production</option>
+                        <option value="worst-case">Worst Case</option>
+                        <option value="best-practice">Best Practice</option>
+                    </select>
+                    <button onclick="shareScenario()" class="bg-gradient-to-r from-green-500 to-emerald-600 text-white px-6 py-2 rounded-lg hover:shadow-lg transition-all">
+                        📤 Share
+                    </button>
+                    <button onclick="runPipeline()" class="bg-gradient-to-r from-blue-500 to-purple-600 text-white px-6 py-3 rounded-lg hover:shadow-lg transition-all font-bold">
+                        ▶️ Run Pipeline
+                    </button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Pipeline Visualization -->
+        <div class="bg-white rounded-xl shadow-xl p-8 mb-6">
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-xl font-bold">Pipeline Flow</h2>
+                <div class="flex gap-2">
+                    <span class="status-indicator status-pending"></span> Pending
+                    <span class="status-indicator status-processing ml-4"></span> Processing
+                    <span class="status-indicator status-complete ml-4"></span> Complete
+                    <span class="status-indicator status-error ml-4"></span> Error
+                </div>
+            </div>
+            
+            <!-- SVG Pipeline -->
+            <svg width="100%" height="400" viewBox="0 0 1200 400" class="mb-6">
+                <!-- Flow Lines -->
+                <defs>
+                    <marker id="arrowhead" markerWidth="10" markerHeight="7" refX="9" refY="3.5" orient="auto">
+                        <polygon points="0 0, 10 3.5, 0 7" fill="#8b5cf6" />
+                    </marker>
+                    <linearGradient id="flowGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+                        <stop offset="0%" style="stop-color:#3b82f6;stop-opacity:1" />
+                        <stop offset="100%" style="stop-color:#8b5cf6;stop-opacity:1" />
+                    </linearGradient>
+                </defs>
+                
+                <!-- Connections -->
+                <path d="M 150 80 L 350 80" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 150 200 L 350 200" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 150 320 L 350 320" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                
+                <path d="M 500 80 L 700 80" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 500 200 L 700 200" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 500 320 L 700 320" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                
+                <path d="M 850 80 L 1050 80" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 850 200 L 1050 200" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 850 320 L 1050 320" stroke="url(#flowGradient)" stroke-width="3" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                
+                <!-- Vertical connections -->
+                <path d="M 425 120 L 425 160" stroke="url(#flowGradient)" stroke-width="2" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 425 240 L 425 280" stroke="url(#flowGradient)" stroke-width="2" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 775 120 L 775 160" stroke="url(#flowGradient)" stroke-width="2" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                <path d="M 775 240 L 775 280" stroke="url(#flowGradient)" stroke-width="2" fill="none" marker-end="url(#arrowhead)" class="flow-line"/>
+                
+                <!-- Nodes -->
+                <!-- Row 1 -->
+                <g class="node" onclick="showNodeDetails('gap-filling')" transform="translate(50, 50)">
+                    <rect width="200" height="60" rx="10" fill="#3b82f6" />
+                    <text x="100" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">Gap-Filling Ensemble</text>
+                    <text x="100" y="50" text-anchor="middle" fill="white" font-size="10">~100ms</text>
+                </g>
+                
+                <g class="node" onclick="showNodeDetails('ef-selector')" transform="translate(400, 50)">
+                    <rect width="200" height="60" rx="10" fill="#10b981" />
+                    <text x="100" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">EF Selector</text>
+                    <text x="100" y="50" text-anchor="middle" fill="white" font-size="10">~50ms</text>
+                </g>
+                
+                <g class="node" onclick="showNodeDetails('surrogates')" transform="translate(750, 50)">
+                    <rect width="200" height="60" rx="10" fill="#8b5cf6" />
+                    <text x="100" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">Process Surrogates</text>
+                    <text x="100" y="50" text-anchor="middle" fill="white" font-size="10">~150ms</text>
+                </g>
+                
+                <!-- Row 2 -->
+                <g class="node" onclick="showNodeDetails('circularity')" transform="translate(50, 170)">
+                    <rect width="200" height="60" rx="10" fill="#14b8a6" />
+                    <text x="100" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">Circularity Metrics</text>
+                    <text x="100" y="50" text-anchor="middle" fill="white" font-size="10">~80ms</text>
+                </g>
+                
+                <g class="node" onclick="showNodeDetails('forecast')" transform="translate(400, 170)">
+                    <rect width="200" height="60" rx="10" fill="#6366f1" />
+                    <text x="100" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">Regional Forecast</text>
+                    <text x="100" y="50" text-anchor="middle" fill="white" font-size="10">~200ms</text>
+                </g>
+                
+                <g class="node" onclick="showNodeDetails('anomaly')" transform="translate(750, 170)">
+                    <rect width="200" height="60" rx="10" fill="#ef4444" />
+                    <text x="100" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">Anomaly Check</text>
+                    <text x="100" y="50" text-anchor="middle" fill="white" font-size="10">~120ms</text>
+                </g>
+                
+                <!-- Row 3 -->
+                <g class="node" onclick="showNodeDetails('optimizer')" transform="translate(400, 290)">
+                    <rect width="200" height="60" rx="10" fill="#f59e0b" />
+                    <text x="100" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">Optimizer</text>
+                    <text x="100" y="50" text-anchor="middle" fill="white" font-size="10">~500ms</text>
+                </g>
+                
+                <g class="node" onclick="showNodeDetails('rag')" transform="translate(750, 290)">
+                    <rect width="200" height="60" rx="10" fill="#a855f7" />
+                    <text x="100" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">RAG System</text>
+                    <text x="100" y="50" text-anchor="middle" fill="white" font-size="10">~300ms</text>
+                </g>
+                
+                <g class="node" onclick="showNodeDetails('report')" transform="translate(1050, 170)">
+                    <rect width="120" height="60" rx="10" fill="#059669" />
+                    <text x="60" y="35" text-anchor="middle" fill="white" font-weight="bold" font-size="14">Final Report</text>
+                    <text x="60" y="50" text-anchor="middle" fill="white" font-size="10">Complete</text>
+                </g>
+                
+                <!-- Data Flow Indicators -->
+                <circle r="8" fill="#3b82f6" opacity="0.8" class="data-packet" id="packet1">
+                    <animateMotion dur="3s" repeatCount="indefinite">
+                        <mpath href="#flow-path-1"/>
+                    </animateMotion>
+                </circle>
+            </svg>
+            
+            <!-- Progress Bar -->
+            <div class="w-full bg-gray-200 rounded-full h-3 mb-4">
+                <div id="progressBar" class="bg-gradient-to-r from-blue-500 to-purple-600 h-3 rounded-full transition-all duration-500" style="width: 0%"></div>
+            </div>
+            
+            <!-- Status Text -->
+            <div id="statusText" class="text-center text-gray-600 font-medium">
+                Ready to process...
+            </div>
+        </div>
+
+        <!-- Request/Response Panel -->
+        <div class="bg-white rounded-xl shadow-xl p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-xl font-bold">Live Data Flow</h2>
+                <div class="flex gap-2">
+                    <button class="tab-button active" onclick="switchTab('request')">Request</button>
+                    <button class="tab-button" onclick="switchTab('response')">Response</button>
+                    <button class="tab-button" onclick="switchTab('metrics')">Metrics</button>
+                </div>
+            </div>
+            
+            <div id="dataPanel" class="relative">
+                <!-- Request Tab -->
+                <div id="requestTab" class="tab-content">
+                    <div class="code-snippet">
+                        <button class="copy-button" onclick="copyCode('request')">Copy</button>
+                        <pre id="requestCode" class="overflow-x-auto"></pre>
+                    </div>
+                </div>
+                
+                <!-- Response Tab -->
+                <div id="responseTab" class="tab-content hidden">
+                    <div class="code-snippet">
+                        <button class="copy-button" onclick="copyCode('response')">Copy</button>
+                        <pre id="responseCode" class="overflow-x-auto"></pre>
+                    </div>
+                </div>
+                
+                <!-- Metrics Tab -->
+                <div id="metricsTab" class="tab-content hidden">
+                    <div class="grid grid-cols-3 gap-4">
+                        <div class="metric-card">
+                            <h3 class="text-sm text-gray-600">Total Processing Time</h3>
+                            <p class="text-2xl font-bold text-blue-600" id="totalTime">0ms</p>
+                        </div>
+                        <div class="metric-card">
+                            <h3 class="text-sm text-gray-600">Models Executed</h3>
+                            <p class="text-2xl font-bold text-purple-600" id="modelsCount">0/13</p>
+                        </div>
+                        <div class="metric-card">
+                            <h3 class="text-sm text-gray-600">Confidence Score</h3>
+                            <p class="text-2xl font-bold text-green-600" id="confidenceScore">0%</p>
+                        </div>
+                        <div class="metric-card">
+                            <h3 class="text-sm text-gray-600">Data Points Processed</h3>
+                            <p class="text-2xl font-bold text-orange-600" id="dataPoints">0</p>
+                        </div>
+                        <div class="metric-card">
+                            <h3 class="text-sm text-gray-600">Emission Factor</h3>
+                            <p class="text-2xl font-bold text-red-600" id="emissionFactor">0 kg CO₂</p>
+                        </div>
+                        <div class="metric-card">
+                            <h3 class="text-sm text-gray-600">Circularity Index</h3>
+                            <p class="text-2xl font-bold text-teal-600" id="circularityIndex">0.00</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Node Details Modal -->
+        <div id="nodeModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-xl p-6 max-w-4xl max-h-[80vh] overflow-y-auto">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 id="modalTitle" class="text-2xl font-bold"></h3>
+                    <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700 text-2xl">×</button>
+                </div>
+                <div id="modalContent"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Scenario Configurations
+        const scenarios = {
+            'default': {
+                name: 'Default (India Aluminum)',
+                description: 'Standard aluminum production in India with mixed grid',
+                params: {
+                    production_tonnes: 120000,
+                    region: 'IN',
+                    recycled_content: 0.35,
+                    renewable_share: 0.23,
+                    electricity_kwh_per_t: 14850,
+                    waste_kg_per_t: 385,
+                    grid_co2: 620,
+                    target_emissions: 11.8
+                }
+            },
+            'high-recycling': {
+                name: 'High Recycling (90%)',
+                description: 'Optimized for maximum recycled content',
+                params: {
+                    production_tonnes: 120000,
+                    region: 'EU',
+                    recycled_content: 0.90,
+                    renewable_share: 0.35,
+                    electricity_kwh_per_t: 12500,
+                    waste_kg_per_t: 180,
+                    grid_co2: 380,
+                    target_emissions: 4.2
+                }
+            },
+            'renewable-grid': {
+                name: '100% Renewable Grid',
+                description: 'Production with fully renewable electricity',
+                params: {
+                    production_tonnes: 100000,
+                    region: 'NO',
+                    recycled_content: 0.50,
+                    renewable_share: 1.0,
+                    electricity_kwh_per_t: 14200,
+                    waste_kg_per_t: 290,
+                    grid_co2: 15,
+                    target_emissions: 2.1
+                }
+            },
+            'copper': {
+                name: 'Copper Production',
+                description: 'Copper cathode production via electrolysis',
+                params: {
+                    production_tonnes: 80000,
+                    region: 'CL',
+                    recycled_content: 0.25,
+                    renewable_share: 0.48,
+                    electricity_kwh_per_t: 3800,
+                    waste_kg_per_t: 2400,
+                    grid_co2: 420,
+                    target_emissions: 3.8
+                }
+            },
+            'worst-case': {
+                name: 'Worst Case',
+                description: 'High emissions scenario with coal-based grid',
+                params: {
+                    production_tonnes: 150000,
+                    region: 'CN',
+                    recycled_content: 0.10,
+                    renewable_share: 0.08,
+                    electricity_kwh_per_t: 16500,
+                    waste_kg_per_t: 680,
+                    grid_co2: 980,
+                    target_emissions: 18.5
+                }
+            },
+            'best-practice': {
+                name: 'Best Practice',
+                description: 'Industry-leading sustainability metrics',
+                params: {
+                    production_tonnes: 100000,
+                    region: 'SE',
+                    recycled_content: 0.75,
+                    renewable_share: 0.85,
+                    electricity_kwh_per_t: 13000,
+                    waste_kg_per_t: 120,
+                    grid_co2: 45,
+                    target_emissions: 3.2
+                }
+            }
+        };
+
+        let currentScenario = 'default';
+        
+        // Pipeline Configuration
+        const pipelineModels = {
+            'gap-filling': {
+                name: 'Gap-Filling Ensemble',
+                description: 'Handles missing data using XGBoost, Random Forest, and Neural Network ensemble',
+                getRequest: (scenario) => ({
+                    "model": "gap_filling_ensemble",
+                    "scenario": scenario.name,
+                    "missing_fields": ["electricity_kwh_per_t", "waste_kg_per_t"],
+                    "known_values": {
+                        "production_tonnes": scenario.params.production_tonnes,
+                        "region": scenario.params.region,
+                        "year": 2025
+                    },
+                    "ensemble_config": {
+                        "models": ["xgboost", "random_forest", "neural_net"],
+                        "voting": "weighted_average"
+                    }
+                }),
+                getResponse: (scenario) => ({
+                    "electricity_kwh_per_t": {
+                        "predicted": scenario.params.electricity_kwh_per_t,
+                        "confidence": 0.89 + (scenario.params.recycled_content * 0.05),
+                        "range": [scenario.params.electricity_kwh_per_t * 0.95, scenario.params.electricity_kwh_per_t * 1.05],
+                        "ensemble_votes": {
+                            "xgboost": scenario.params.electricity_kwh_per_t + 50,
+                            "random_forest": scenario.params.electricity_kwh_per_t - 100,
+                            "neural_net": scenario.params.electricity_kwh_per_t + 50
+                        }
+                    },
+                    "waste_kg_per_t": {
+                        "predicted": scenario.params.waste_kg_per_t,
+                        "confidence": 0.92,
+                        "range": [scenario.params.waste_kg_per_t * 0.9, scenario.params.waste_kg_per_t * 1.1]
+                    },
+                    "metadata": {
+                        "processing_time_ms": 98,
+                        "model_version": "2.1.0"
+                    }
+                })
+            },
+            'ef-selector': {
+                name: 'Emission Factor Selector',
+                description: 'Selects optimal emission factors using multi-criteria decision analysis',
+                getRequest: (scenario) => ({
+                    "process": scenario.name.includes('Copper') ? "copper_electrolysis" : "aluminum_smelting",
+                    "region": scenario.params.region,
+                    "year": 2025,
+                    "technology": "prebaked_anodes",
+                    "data_quality_requirements": "medium",
+                    "candidate_sources": ["ecoinvent", "gabi", "ipcc", "local_data"]
+                }),
+                getResponse: (scenario) => ({
+                    "selected_factor": {
+                        "id": `EF_${scenario.params.region}_2025`,
+                        "value": scenario.params.target_emissions,
+                        "unit": "kg_CO2_per_kg",
+                        "source": "ecoinvent_3.9",
+                        "confidence_score": 0.85 + (scenario.params.renewable_share * 0.1)
+                    },
+                    "alternatives": [
+                        {"source": "gabi", "value": scenario.params.target_emissions * 1.03, "score": 0.82},
+                        {"source": "ipcc", "value": scenario.params.target_emissions * 0.97, "score": 0.79}
+                    ],
+                    "processing_time_ms": 52
+                })
+            },
+            'surrogates': {
+                name: 'Process Surrogates',
+                description: 'Fast ML surrogates for complex process simulations',
+                getRequest: (scenario) => ({
+                    "models": ["energy", "emissions", "water"],
+                    "input_parameters": {
+                        "production_rate": scenario.params.production_tonnes,
+                        "temperature": scenario.name.includes('Copper') ? 65 : 960,
+                        "current_density": 0.85 - (scenario.params.waste_kg_per_t / 10000),
+                        "renewable_fraction": scenario.params.renewable_share
+                    },
+                    "sensitivity_analysis": true
+                }),
+                getResponse: (scenario) => ({
+                    "energy": {
+                        "value": scenario.params.electricity_kwh_per_t,
+                        "unit": "kWh/t",
+                        "r2_score": 0.94 + scenario.params.renewable_share * 0.02
+                    },
+                    "emissions": {
+                        "direct": scenario.params.target_emissions * 100,
+                        "indirect": scenario.params.electricity_kwh_per_t * scenario.params.grid_co2 / 1000,
+                        "unit": "kg_CO2/t"
+                    },
+                    "water": {
+                        "consumption": scenario.name.includes('Copper') ? 28.5 : 3.2,
+                        "unit": "m3/t"
+                    },
+                    "sensitivity": {
+                        "most_influential": scenario.params.renewable_share > 0.5 ? "renewable_fraction" : "current_density",
+                        "variance_explained": 0.38 + scenario.params.recycled_content * 0.1
+                    },
+                    "processing_time_ms": 147
+                })
+            },
+            'circularity': {
+                name: 'Circularity Metrics',
+                description: 'Calculates Material Circularity Index and related metrics',
+                getRequest: (scenario) => ({
+                    "product": scenario.name.includes('Copper') ? "copper_cathode" : "aluminum_ingot",
+                    "mass_product": 1000,
+                    "mass_virgin": 1000 * (1 - scenario.params.recycled_content),
+                    "mass_recycled": 1000 * scenario.params.recycled_content,
+                    "utility_factor": 1.0,
+                    "lifetime_product": scenario.name.includes('Copper') ? 30 : 25,
+                    "lifetime_average": 20
+                }),
+                getResponse: (scenario) => {
+                    const mci = 0.3 + scenario.params.recycled_content * 0.5 + scenario.params.renewable_share * 0.1;
+                    return {
+                        "mci": Math.min(mci, 0.95),
+                        "linear_flow_index": 1 - mci,
+                        "recycled_content": scenario.params.recycled_content,
+                        "recyclability": 0.90 + scenario.params.recycled_content * 0.05,
+                        "recommendations": scenario.params.recycled_content < 0.5 ? 
+                            ["Increase recycled content to improve MCI", "Implement better collection systems"] :
+                            ["Maintain high recycling rates", "Focus on renewable energy"],
+                        "processing_time_ms": 78
+                    };
+                }
+            },
+            'forecast': {
+                name: 'Regional Forecast',
+                description: 'Time-series forecasting for regional grid emissions',
+                getRequest: (scenario) => ({
+                    "region": scenario.params.region,
+                    "horizon_days": 30,
+                    "features": {
+                        "historical_data": "last_365_days",
+                        "weather_forecast": true,
+                        "renewable_capacity": true,
+                        "current_renewable_share": scenario.params.renewable_share
+                    }
+                }),
+                getResponse: (scenario) => {
+                    const trend = scenario.params.renewable_share > 0.5 ? -2 : -0.5;
+                    const baseGrid = scenario.params.grid_co2;
+                    return {
+                        "grid_co2_g_per_kwh": {
+                            "forecast": [
+                                baseGrid,
+                                baseGrid + trend * 5,
+                                baseGrid + trend * 10,
+                                baseGrid + trend * 15,
+                                baseGrid + trend * 20
+                            ],
+                            "confidence_interval": [
+                                [baseGrid - 30, baseGrid + 30],
+                                [baseGrid + trend * 5 - 35, baseGrid + trend * 5 + 35]
+                            ],
+                            "trend": trend < -1 ? "strongly_decreasing" : "slightly_decreasing"
+                        },
+                        "renewable_share": {
+                            "current": scenario.params.renewable_share,
+                            "forecast_30d": Math.min(scenario.params.renewable_share + 0.03, 1.0)
+                        },
+                        "processing_time_ms": 198
+                    };
+                }
+            },
+            'anomaly': {
+                name: 'Anomaly Checker',
+                description: 'Detects data quality issues and anomalies',
+                getRequest: (scenario) => ({
+                    "data": {
+                        "electricity_kwh_per_t": scenario.params.electricity_kwh_per_t,
+                        "production_tonnes": scenario.params.production_tonnes,
+                        "waste_kg_per_t": scenario.params.waste_kg_per_t,
+                        "recycled_content": scenario.params.recycled_content
+                    },
+                    "validation_rules": ["mass_balance", "energy_bounds", "consistency", "circularity_limits"]
+                }),
+                getResponse: (scenario) => {
+                    const violations = [];
+                    let anomalyScore = 0;
+                    
+                    // Check for worst case anomalies
+                    if (scenario.name === 'Worst Case') {
+                        violations.push({
+                            "rule": "energy_bounds",
+                            "severity": "high",
+                            "detail": "Energy consumption exceeds industry P95"
+                        });
+                        anomalyScore = 0.78;
+                    } else if (scenario.params.waste_kg_per_t > 500) {
+                        violations.push({
+                            "rule": "waste_limits",
+                            "severity": "medium",
+                            "detail": "Waste generation above typical ranges"
+                        });
+                        anomalyScore = 0.45;
+                    } else {
+                        anomalyScore = 0.12;
+                    }
+                    
+                    return {
+                        "anomaly_score": anomalyScore,
+                        "violations": violations,
+                        "action": anomalyScore > 0.5 ? "trigger_rag" : "proceed",
+                        "confidence": 0.95 - anomalyScore * 0.2,
+                        "processing_time_ms": 122
+                    };
+                }
+            },
+            'optimizer': {
+                name: 'Multi-Objective Optimizer',
+                description: 'Bayesian optimization for sustainability targets',
+                getRequest: (scenario) => ({
+                    "objectives": ["minimize_co2", "maximize_mci", "minimize_cost"],
+                    "constraints": {
+                        "budget_usd": 500000,
+                        "production_min": scenario.params.production_tonnes * 0.8,
+                        "grid_constraint": scenario.params.grid_co2
+                    },
+                    "bounds": {
+                        "recycled_content": [scenario.params.recycled_content * 0.8, Math.min(scenario.params.recycled_content * 1.3, 0.95)],
+                        "renewable_energy": [scenario.params.renewable_share * 0.9, Math.min(scenario.params.renewable_share * 1.5, 1.0)]
+                    },
+                    "current_state": {
+                        "emissions": scenario.params.target_emissions,
+                        "mci": 0.3 + scenario.params.recycled_content * 0.5
+                    }
+                }),
+                getResponse: (scenario) => {
+                    const optimizedRecycled = Math.min(scenario.params.recycled_content + 0.15, 0.9);
+                    const optimizedRenewable = Math.min(scenario.params.renewable_share + 0.2, 0.95);
+                    const reduction = (optimizedRecycled - scenario.params.recycled_content) * 0.3 + 
+                                    (optimizedRenewable - scenario.params.renewable_share) * 0.4;
+                    
+                    return {
+                        "optimal_solution": {
+                            "recycled_content": optimizedRecycled,
+                            "renewable_energy": optimizedRenewable,
+                            "co2_reduction": reduction,
+                            "mci": 0.3 + optimizedRecycled * 0.5 + optimizedRenewable * 0.1,
+                            "cost_increase_pct": reduction * 100
+                        },
+                        "pareto_frontier": [
+                            {"co2": scenario.params.target_emissions * (1 - reduction), "mci": 0.3 + optimizedRecycled * 0.5},
+                            {"co2": scenario.params.target_emissions * (1 - reduction * 0.8), "mci": 0.3 + optimizedRecycled * 0.6},
+                            {"co2": scenario.params.target_emissions * (1 - reduction * 0.6), "mci": 0.3 + optimizedRecycled * 0.7}
+                        ],
+                        "improvement_potential": scenario.name === 'Best Practice' ? "minimal" : "significant",
+                        "iterations": 40,
+                        "processing_time_ms": 487
+                    };
+                }
+            },
+            'rag': {
+                name: 'RAG System',
+                description: 'Retrieval-Augmented Generation for validation',
+                getRequest: (scenario) => ({
+                    "query": `Validate parameters for ${scenario.name} scenario in ${scenario.params.region}`,
+                    "context": {
+                        "electricity_kwh_per_t": scenario.params.electricity_kwh_per_t,
+                        "region": scenario.params.region,
+                        "recycled_content": scenario.params.recycled_content,
+                        "renewable_share": scenario.params.renewable_share,
+                        "emissions_target": scenario.params.target_emissions
+                    },
+                    "validation_needed": scenario.name === 'Worst Case' || scenario.params.target_emissions > 15
+                }),
+                getResponse: (scenario) => {
+                    const standards = {
+                        'default': { range: "13000-15500 kWh/t", source: "IAI Statistical Report 2024" },
+                        'copper': { range: "2500-4500 kWh/t", source: "ICSG Copper Bulletin 2024" },
+                        'best-practice': { range: "12000-13500 kWh/t", source: "Best Available Techniques Reference" },
+                        'worst-case': { range: "15000-18000 kWh/t", source: "Global Industry Analysis 2024" }
+                    };
+                    
+                    const standard = standards[currentScenario] || standards['default'];
+                    
+                    return {
+                        "answer": `Parameters validated for ${scenario.name}. Energy consumption of ${scenario.params.electricity_kwh_per_t} kWh/t is within expected range of ${standard.range} for this configuration.`,
+                        "sources": [
+                            {
+                                "title": standard.source,
+                                "relevance": 0.92 + scenario.params.renewable_share * 0.05
+                            },
+                            {
+                                "title": "Regional Grid Report " + scenario.params.region,
+                                "relevance": 0.85
+                            }
+                        ],
+                        "confidence": 0.88 + scenario.params.recycled_content * 0.1,
+                        "recommendation": scenario.name === 'Worst Case' ? 
+                            "Consider transitioning to cleaner energy sources" : 
+                            "Continue monitoring for optimization opportunities",
+                        "validation_status": "passed",
+                        "processing_time_ms": 298
+                    };
+                }
+            },
+            'report': {
+                name: 'Final Report',
+                description: 'Comprehensive LCA results compilation',
+                getRequest: (scenario) => ({
+                    "format": "json",
+                    "include_uncertainties": true,
+                    "compliance_check": ["ISO14040", "GHG_Protocol", "SBTi"],
+                    "scenario": scenario.name,
+                    "region": scenario.params.region
+                }),
+                getResponse: (scenario) => {
+                    const mci = 0.3 + scenario.params.recycled_content * 0.5 + scenario.params.renewable_share * 0.1;
+                    const compliance = scenario.params.target_emissions < 10 ? "compliant" : "requires_improvement";
+                    
+                    return {
+                        "scenario_summary": {
+                            "name": scenario.name,
+                            "description": scenario.description
+                        },
+                        "total_emissions": {
+                            "value": scenario.params.target_emissions,
+                            "unit": "kg_CO2_per_kg",
+                            "uncertainty": scenario.name === 'Best Practice' ? 0.08 : 0.15,
+                            "breakdown": {
+                                "electricity": (scenario.params.electricity_kwh_per_t * scenario.params.grid_co2 / 1000000).toFixed(2),
+                                "direct_process": (scenario.params.target_emissions * 0.15).toFixed(2),
+                                "materials": (scenario.params.target_emissions * 0.25).toFixed(2),
+                                "transport": (scenario.params.target_emissions * 0.1).toFixed(2)
+                            }
+                        },
+                        "circularity": {
+                            "mci": Math.min(mci, 0.95).toFixed(2),
+                            "recycled_content": scenario.params.recycled_content,
+                            "end_of_life_recycling": scenario.params.recycled_content + 0.15
+                        },
+                        "energy": {
+                            "total_kwh_per_t": scenario.params.electricity_kwh_per_t,
+                            "renewable_share": scenario.params.renewable_share,
+                            "grid_intensity": scenario.params.grid_co2 + " g/kWh"
+                        },
+                        "compliance": {
+                            "ISO14040": "compliant",
+                            "GHG_Protocol": compliance,
+                            "SBTi": scenario.params.target_emissions < 5 ? "aligned" : "action_required"
+                        },
+                        "recommendations": scenario.name === 'Best Practice' ? 
+                            ["Maintain current performance", "Share best practices"] :
+                            ["Increase renewable energy", "Improve recycling rate", "Optimize processes"],
+                        "confidence_overall": 0.85 + scenario.params.renewable_share * 0.1,
+                        "processing_time_total_ms": 1580
+                    };
+                }
+            }
+        };
+
+        let currentModel = null;
+        let pipelineRunning = false;
+        let processedModels = 0;
+        let totalProcessingTime = 0;
+
+        function formatJSON(obj) {
+            return JSON.stringify(obj, null, 2)
+                .replace(/"([^"]+)":/g, '<span class="json-key">"$1"</span>:')
+                .replace(/: "([^"]*)"/g, ': <span class="json-string">"$1"</span>')
+                .replace(/: (\d+\.?\d*)/g, ': <span class="json-number">$1</span>')
+                .replace(/: (true|false)/g, ': <span class="json-boolean">$1</span>')
+                .replace(/: null/g, ': <span class="json-null">null</span>');
+        }
+
+        function showNodeDetails(modelId) {
+            const model = pipelineModels[modelId];
+            if (!model) return;
+            
+            const scenario = scenarios[currentScenario];
+            const request = model.getRequest ? model.getRequest(scenario) : model.request;
+            const response = model.getResponse ? model.getResponse(scenario) : model.response;
+            
+            currentModel = modelId;
+            document.getElementById('modalTitle').textContent = model.name;
+            
+            const content = `
+                <p class="text-gray-600 mb-4">${model.description}</p>
+                <div class="mb-2 p-2 bg-blue-50 rounded">
+                    <span class="font-semibold">Scenario:</span> ${scenario.name}
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <h4 class="font-bold mb-2">Request</h4>
+                        <div class="code-snippet">
+                            <pre>${formatJSON(request)}</pre>
+                        </div>
+                    </div>
+                    <div>
+                        <h4 class="font-bold mb-2">Response</h4>
+                        <div class="code-snippet">
+                            <pre>${formatJSON(response)}</pre>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.getElementById('modalContent').innerHTML = content;
+            document.getElementById('nodeModal').classList.remove('hidden');
+            
+            // Update main display
+            document.getElementById('requestCode').innerHTML = formatJSON(request);
+            document.getElementById('responseCode').innerHTML = formatJSON(response);
+        }
+        
+        function loadScenario() {
+            currentScenario = document.getElementById('scenarioSelect').value;
+            const scenario = scenarios[currentScenario];
+            
+            // Update status
+            document.getElementById('statusText').textContent = `Loaded: ${scenario.name}`;
+            
+            // Update metrics display
+            updateScenarioMetrics(scenario);
+            
+            // If modal is open, refresh it
+            if (currentModel) {
+                showNodeDetails(currentModel);
+            }
+        }
+        
+        function updateScenarioMetrics(scenario) {
+            // Update initial metrics based on scenario
+            document.getElementById('emissionFactor').textContent = scenario.params.target_emissions.toFixed(2) + ' kg CO₂';
+            document.getElementById('circularityIndex').textContent = (0.3 + scenario.params.recycled_content * 0.5).toFixed(2);
+            
+            // Add scenario info panel
+            const infoPanel = document.createElement('div');
+            infoPanel.className = 'bg-gradient-to-r from-blue-50 to-purple-50 p-4 rounded-lg mb-4';
+            infoPanel.innerHTML = `
+                <h3 class="font-bold text-lg mb-2">${scenario.name}</h3>
+                <p class="text-sm text-gray-600 mb-2">${scenario.description}</p>
+                <div class="grid grid-cols-4 gap-2 text-xs">
+                    <div><span class="font-semibold">Region:</span> ${scenario.params.region}</div>
+                    <div><span class="font-semibold">Recycled:</span> ${(scenario.params.recycled_content * 100).toFixed(0)}%</div>
+                    <div><span class="font-semibold">Renewable:</span> ${(scenario.params.renewable_share * 100).toFixed(0)}%</div>
+                    <div><span class="font-semibold">Grid CO₂:</span> ${scenario.params.grid_co2} g/kWh</div>
+                </div>
+            `;
+            
+            const existingInfo = document.getElementById('scenarioInfo');
+            if (existingInfo) {
+                existingInfo.replaceWith(infoPanel);
+            } else {
+                infoPanel.id = 'scenarioInfo';
+                document.querySelector('.bg-white.rounded-xl.shadow-xl.p-8.mb-6').insertBefore(
+                    infoPanel, 
+                    document.querySelector('.bg-white.rounded-xl.shadow-xl.p-8.mb-6').firstChild
+                );
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('nodeModal').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            // Hide all tabs
+            document.querySelectorAll('.tab-content').forEach(t => t.classList.add('hidden'));
+            document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+            
+            // Show selected tab
+            document.getElementById(tab + 'Tab').classList.remove('hidden');
+            event.target.classList.add('active');
+        }
+
+        async function runPipeline() {
+            if (pipelineRunning) return;
+            pipelineRunning = true;
+            processedModels = 0;
+            totalProcessingTime = 0;
+            
+            const modelSequence = [
+                'gap-filling', 'ef-selector', 'surrogates', 
+                'circularity', 'forecast', 'anomaly',
+                'optimizer', 'rag', 'report'
+            ];
+            
+            for (const modelId of modelSequence) {
+                await processModel(modelId);
+            }
+            
+            pipelineRunning = false;
+            document.getElementById('statusText').textContent = 'Pipeline complete!';
+        }
+
+        async function processModel(modelId) {
+            const model = pipelineModels[modelId];
+            if (!model) return;
+            
+            const scenario = scenarios[currentScenario];
+            const request = model.getRequest ? model.getRequest(scenario) : model.request;
+            const response = model.getResponse ? model.getResponse(scenario) : model.response;
+            
+            // Update status
+            document.getElementById('statusText').textContent = `Processing: ${model.name} (${scenario.name})`;
+            
+            // Animate node
+            const nodes = document.querySelectorAll('.node');
+            nodes.forEach(n => n.classList.remove('active'));
+            
+            // Update displays
+            document.getElementById('requestCode').innerHTML = formatJSON(request);
+            
+            // Simulate processing
+            await new Promise(resolve => setTimeout(resolve, response.processing_time_ms || 100));
+            
+            document.getElementById('responseCode').innerHTML = formatJSON(response);
+            
+            // Update metrics
+            processedModels++;
+            totalProcessingTime += response.processing_time_ms || 100;
+            
+            document.getElementById('totalTime').textContent = totalProcessingTime + 'ms';
+            document.getElementById('modelsCount').textContent = processedModels + '/9';
+            document.getElementById('progressBar').style.width = (processedModels / 9 * 100) + '%';
+            
+            // Update specific metrics if available
+            if (response.confidence || response.confidence_score) {
+                document.getElementById('confidenceScore').textContent = 
+                    Math.round((response.confidence || response.confidence_score) * 100) + '%';
+            }
+            
+            if (modelId === 'surrogates' && response.emissions) {
+                const emissions = scenario.params.target_emissions;
+                document.getElementById('emissionFactor').textContent = emissions.toFixed(2) + ' kg CO₂';
+            }
+            
+            if (modelId === 'circularity') {
+                const mci = 0.3 + scenario.params.recycled_content * 0.5;
+                document.getElementById('circularityIndex').textContent = mci.toFixed(2);
+            }
+            
+            await new Promise(resolve => setTimeout(resolve, 300));
+        }
+
+        function copyCode(type) {
+            const code = document.getElementById(type + 'Code').textContent;
+            navigator.clipboard.writeText(code);
+            event.target.textContent = 'Copied!';
+            setTimeout(() => event.target.textContent = 'Copy', 2000);
+        }
+
+        function shareScenario() {
+            const scenario = document.getElementById('scenarioSelect').value;
+            const url = window.location.href + '?scenario=' + scenario;
+            navigator.clipboard.writeText(url);
+            alert('Scenario link copied to clipboard!');
+        }
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            // Load default scenario
+            loadScenario();
+            
+            // Set initial display
+            showNodeDetails('gap-filling');
+            
+            // Add keyboard shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.key === 'Escape') closeModal();
+                if (e.key === 'Enter' && e.ctrlKey) runPipeline();
+            });
+        });
+
+        // Auto-update data points
+        setInterval(() => {
+            if (pipelineRunning) {
+                const current = parseInt(document.getElementById('dataPoints').textContent);
+                document.getElementById('dataPoints').textContent = current + Math.floor(Math.random() * 100);
+            }
+        }, 500);
+    </script>
+</body>
+</html>

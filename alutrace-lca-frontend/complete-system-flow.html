@@ -1,0 +1,1087 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AluTrace - Complete System Flow Visualization</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+
+        /* Header Styles */
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px;
+            border-radius: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+        }
+
+        .header h1 {
+            font-size: 3rem;
+            margin-bottom: 10px;
+            font-weight: 700;
+        }
+
+        .header p {
+            font-size: 1.2rem;
+            opacity: 0.9;
+            margin-bottom: 20px;
+        }
+
+        .badges {
+            display: flex;
+            gap: 15px;
+            flex-wrap: wrap;
+        }
+
+        .badge {
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* Sidebar Navigation */
+        .main-layout {
+            display: grid;
+            grid-template-columns: 280px 1fr;
+            gap: 30px;
+        }
+
+        .sidebar {
+            background: white;
+            border-radius: 15px;
+            padding: 25px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+            position: sticky;
+            top: 20px;
+            height: fit-content;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 20px;
+            color: #333;
+            font-size: 1.2rem;
+        }
+
+        .nav-item {
+            padding: 12px 15px;
+            margin-bottom: 10px;
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.3s;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .nav-item:hover {
+            background: #f5f5f5;
+        }
+
+        .nav-item.active {
+            background: linear-gradient(135deg, #667eea20, #764ba220);
+            border-left: 4px solid #667eea;
+        }
+
+        .nav-item .icon {
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .nav-item .text {
+            flex: 1;
+        }
+
+        .nav-item .stage-number {
+            font-weight: 600;
+            font-size: 0.9rem;
+        }
+
+        .nav-item .stage-name {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        /* Process Flow Section */
+        .process-flow {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .process-flow h2 {
+            margin-bottom: 25px;
+            color: #333;
+        }
+
+        .flow-container {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 20px;
+            overflow-x: auto;
+            padding: 20px 0;
+        }
+
+        .flow-step {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 20px;
+            min-width: 150px;
+            text-align: center;
+            position: relative;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .flow-step.mining { border-top: 4px solid #FF5722; }
+        .flow-step.refining { border-top: 4px solid #F44336; }
+        .flow-step.smelting { border-top: 4px solid #FF9800; }
+        .flow-step.fabrication { border-top: 4px solid #4CAF50; }
+        .flow-step.use { border-top: 4px solid #2196F3; }
+        .flow-step.recycling { border-top: 4px solid #9C27B0; }
+
+        .flow-arrow {
+            font-size: 30px;
+            color: #999;
+        }
+
+        /* Stage Cards */
+        .stage-section {
+            background: white;
+            border-radius: 15px;
+            padding: 30px;
+            margin-bottom: 30px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .stage-header {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            margin-bottom: 25px;
+            padding-bottom: 20px;
+            border-bottom: 2px solid #f0f0f0;
+        }
+
+        .stage-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-size: 28px;
+        }
+
+        .stage-1 { background: #4CAF50; }
+        .stage-2 { background: #2196F3; }
+        .stage-3 { background: #FF9800; }
+        .stage-4 { background: #9C27B0; }
+        .stage-5 { background: #F44336; }
+
+        .stage-info h3 {
+            font-size: 1.5rem;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .stage-info p {
+            color: #666;
+            line-height: 1.6;
+        }
+
+        .stage-content {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 25px;
+        }
+
+        .content-card {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            border: 1px solid #e0e0e0;
+        }
+
+        .content-card h4 {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .content-list {
+            list-style: none;
+        }
+
+        .content-list li {
+            padding: 8px 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: #555;
+        }
+
+        .content-list li:before {
+            content: "✓";
+            color: #4CAF50;
+            font-weight: bold;
+        }
+
+        .tech-chips {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            margin-top: 10px;
+        }
+
+        .tech-chip {
+            background: #e3f2fd;
+            color: #1976d2;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.85rem;
+        }
+
+        .metrics-row {
+            display: flex;
+            gap: 20px;
+            margin-top: 25px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .metric-card {
+            flex: 1;
+            text-align: center;
+            background: white;
+            padding: 15px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+        }
+
+        .metric-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .metric-label {
+            font-size: 0.85rem;
+            color: #666;
+            margin-top: 5px;
+        }
+
+        /* Integration Points */
+        .integration-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .integration-card {
+            background: white;
+            border: 2px solid;
+            border-radius: 12px;
+            padding: 20px;
+            text-align: center;
+            transition: transform 0.3s;
+        }
+
+        .integration-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .integration-card.erp { border-color: #4CAF50; }
+        .integration-card.scada { border-color: #2196F3; }
+        .integration-card.database { border-color: #FF9800; }
+        .integration-card.blockchain { border-color: #9C27B0; }
+
+        /* Features Grid */
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        .feature-card {
+            background: white;
+            border-radius: 12px;
+            padding: 25px;
+            text-align: center;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+            transition: transform 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .feature-icon {
+            font-size: 40px;
+            color: #667eea;
+            margin-bottom: 15px;
+        }
+
+        .feature-title {
+            font-weight: 600;
+            margin-bottom: 8px;
+            color: #333;
+        }
+
+        .feature-desc {
+            font-size: 0.85rem;
+            color: #666;
+            line-height: 1.4;
+        }
+
+        /* Call to Action */
+        .cta-section {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+            color: white;
+            margin-top: 40px;
+        }
+
+        .cta-section h2 {
+            font-size: 2rem;
+            margin-bottom: 15px;
+        }
+
+        .cta-section p {
+            font-size: 1.1rem;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .cta-buttons {
+            display: flex;
+            gap: 20px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .btn {
+            padding: 12px 30px;
+            border-radius: 30px;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.3s;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            cursor: pointer;
+            border: none;
+            font-size: 1rem;
+        }
+
+        .btn-primary {
+            background: white;
+            color: #667eea;
+        }
+
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+        }
+
+        .btn-secondary {
+            background: transparent;
+            color: white;
+            border: 2px solid white;
+        }
+
+        .btn-secondary:hover {
+            background: white;
+            color: #667eea;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 768px) {
+            .main-layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+            }
+
+            .header h1 {
+                font-size: 2rem;
+            }
+
+            .flow-container {
+                flex-direction: column;
+            }
+
+            .flow-arrow {
+                transform: rotate(90deg);
+            }
+        }
+
+        /* Animations */
+        .fade-in {
+            animation: fadeIn 0.5s ease-in;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(20px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        /* Progress Bars */
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: #e0e0e0;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-top: 8px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #667eea, #764ba2);
+            border-radius: 10px;
+            transition: width 1s ease;
+        }
+
+        /* Quick Stats */
+        .quick-stats {
+            margin-top: 20px;
+            padding-top: 20px;
+            border-top: 1px solid #e0e0e0;
+        }
+
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+
+        .stat-label {
+            color: #666;
+            font-size: 0.9rem;
+        }
+
+        .stat-value {
+            font-weight: 600;
+            color: #333;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header Section -->
+        <div class="header fade-in">
+            <h1>AluTrace System Flow</h1>
+            <p>End-to-End Life Cycle Assessment Platform for Aluminium Industry</p>
+            <div class="badges">
+                <div class="badge">
+                    <span class="material-icons">factory</span>
+                    <span>Mining → Recycling</span>
+                </div>
+                <div class="badge">
+                    <span class="material-icons">co2</span>
+                    <span>Carbon Tracking</span>
+                </div>
+                <div class="badge">
+                    <span class="material-icons">psychology</span>
+                    <span>AI-Powered</span>
+                </div>
+                <div class="badge">
+                    <span class="material-icons">verified_user</span>
+                    <span>ISO 14040/44</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Process Flow -->
+        <div class="process-flow fade-in">
+            <h2>Aluminium Lifecycle Process</h2>
+            <div class="flow-container">
+                <div class="flow-step mining">
+                    <strong>Mining</strong>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 5px;">Bauxite Extraction</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step refining">
+                    <strong>Refining</strong>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 5px;">Alumina Production</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step smelting">
+                    <strong>Smelting</strong>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 5px;">Primary Aluminium</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step fabrication">
+                    <strong>Fabrication</strong>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 5px;">Product Manufacturing</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step use">
+                    <strong>Use Phase</strong>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 5px;">Product Lifecycle</div>
+                </div>
+                <div class="flow-arrow">→</div>
+                <div class="flow-step recycling">
+                    <strong>Recycling</strong>
+                    <div style="font-size: 0.85rem; color: #666; margin-top: 5px;">Material Recovery</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Main Layout -->
+        <div class="main-layout">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <h3>System Stages</h3>
+                <div class="nav-item active">
+                    <div class="icon">
+                        <span class="material-icons" style="color: #4CAF50;">cloud_upload</span>
+                    </div>
+                    <div class="text">
+                        <div class="stage-number">Stage 1</div>
+                        <div class="stage-name">Data Capture</div>
+                    </div>
+                </div>
+                <div class="nav-item">
+                    <div class="icon">
+                        <span class="material-icons" style="color: #2196F3;">assessment</span>
+                    </div>
+                    <div class="text">
+                        <div class="stage-number">Stage 2</div>
+                        <div class="stage-name">Processing</div>
+                    </div>
+                </div>
+                <div class="nav-item">
+                    <div class="icon">
+                        <span class="material-icons" style="color: #FF9800;">storage</span>
+                    </div>
+                    <div class="text">
+                        <div class="stage-number">Stage 3</div>
+                        <div class="stage-name">Storage</div>
+                    </div>
+                </div>
+                <div class="nav-item">
+                    <div class="icon">
+                        <span class="material-icons" style="color: #9C27B0;">api</span>
+                    </div>
+                    <div class="text">
+                        <div class="stage-number">Stage 4</div>
+                        <div class="stage-name">APIs</div>
+                    </div>
+                </div>
+                <div class="nav-item">
+                    <div class="icon">
+                        <span class="material-icons" style="color: #F44336;">dashboard</span>
+                    </div>
+                    <div class="text">
+                        <div class="stage-number">Stage 5</div>
+                        <div class="stage-name">Output</div>
+                    </div>
+                </div>
+
+                <div class="quick-stats">
+                    <h3 style="margin-bottom: 15px;">Key Metrics</h3>
+                    <div class="stat-item">
+                        <span class="stat-label">System Uptime</span>
+                        <span class="stat-value">99.9%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 99.9%"></div>
+                    </div>
+                    
+                    <div class="stat-item" style="margin-top: 15px;">
+                        <span class="stat-label">Data Completeness</span>
+                        <span class="stat-value">95%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: 95%"></div>
+                    </div>
+                    
+                    <div class="stat-item" style="margin-top: 15px;">
+                        <span class="stat-label">Processing Speed</span>
+                        <span class="stat-value"><200ms</span>
+                    </div>
+                    
+                    <div class="stat-item">
+                        <span class="stat-label">Active Integrations</span>
+                        <span class="stat-value">15+</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content -->
+            <div class="main-content">
+                <!-- Stage 1 -->
+                <div class="stage-section fade-in">
+                    <div class="stage-header">
+                        <div class="stage-icon stage-1">
+                            <span class="material-icons">cloud_upload</span>
+                        </div>
+                        <div class="stage-info">
+                            <h3>Stage 1: Data Capture & Input</h3>
+                            <p>Collection of raw data from multiple sources including plant operations, supply chain, and external databases</p>
+                        </div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="content-card">
+                            <h4><span class="material-icons">input</span> Inputs</h4>
+                            <ul class="content-list">
+                                <li>ERP/SCADA Systems</li>
+                                <li>CSV/Excel Files</li>
+                                <li>IoT Sensors</li>
+                                <li>Manual Entry Forms</li>
+                                <li>API Integrations</li>
+                            </ul>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">engineering</span> Processing</h4>
+                            <p style="margin-bottom: 10px;">Technologies Used:</p>
+                            <div class="tech-chips">
+                                <span class="tech-chip">Apache Airflow</span>
+                                <span class="tech-chip">Pandas</span>
+                                <span class="tech-chip">REST APIs</span>
+                                <span class="tech-chip">WebSockets</span>
+                            </div>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">output</span> Outputs</h4>
+                            <ul class="content-list">
+                                <li>Structured Data Sets</li>
+                                <li>Metadata Tags</li>
+                                <li>Timestamp Records</li>
+                                <li>Source Attribution</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="metrics-row">
+                        <div class="metric-card">
+                            <div class="metric-value">1M+</div>
+                            <div class="metric-label">Data Points/Day</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">15+</div>
+                            <div class="metric-label">Data Sources</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value"><100ms</div>
+                            <div class="metric-label">Latency</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stage 2 -->
+                <div class="stage-section fade-in">
+                    <div class="stage-header">
+                        <div class="stage-icon stage-2">
+                            <span class="material-icons">assessment</span>
+                        </div>
+                        <div class="stage-info">
+                            <h3>Stage 2: Processing & Validation</h3>
+                            <p>Data cleaning, normalization, validation, and enrichment with ML-based gap filling</p>
+                        </div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="content-card">
+                            <h4><span class="material-icons">input</span> Inputs</h4>
+                            <ul class="content-list">
+                                <li>Raw Data Streams</li>
+                                <li>Business Rules</li>
+                                <li>Quality Thresholds</li>
+                                <li>Historical Patterns</li>
+                            </ul>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">psychology</span> ML Processing</h4>
+                            <p style="margin-bottom: 10px;">AI/ML Technologies:</p>
+                            <div class="tech-chips">
+                                <span class="tech-chip">XGBoost</span>
+                                <span class="tech-chip">Scikit-learn</span>
+                                <span class="tech-chip">NumPy</span>
+                                <span class="tech-chip">TensorFlow</span>
+                            </div>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">verified</span> Outputs</h4>
+                            <ul class="content-list">
+                                <li>Validated Data</li>
+                                <li>Quality Scores</li>
+                                <li>Anomaly Reports</li>
+                                <li>Gap-Filled Values</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="metrics-row">
+                        <div class="metric-card">
+                            <div class="metric-value">95%+</div>
+                            <div class="metric-label">Accuracy</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">98%</div>
+                            <div class="metric-label">Coverage</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value"><2s</div>
+                            <div class="metric-label">Processing Time</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stage 3 -->
+                <div class="stage-section fade-in">
+                    <div class="stage-header">
+                        <div class="stage-icon stage-3">
+                            <span class="material-icons">storage</span>
+                        </div>
+                        <div class="stage-info">
+                            <h3>Stage 3: Storage & Management</h3>
+                            <p>Secure, scalable data storage with versioning, indexing, and blockchain verification</p>
+                        </div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="content-card">
+                            <h4><span class="material-icons">input</span> Inputs</h4>
+                            <ul class="content-list">
+                                <li>Processed Data</li>
+                                <li>Metadata</li>
+                                <li>Relationships</li>
+                                <li>Audit Logs</li>
+                            </ul>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">database</span> Storage Tech</h4>
+                            <p style="margin-bottom: 10px;">Database Systems:</p>
+                            <div class="tech-chips">
+                                <span class="tech-chip">PostgreSQL</span>
+                                <span class="tech-chip">Redis</span>
+                                <span class="tech-chip">S3</span>
+                                <span class="tech-chip">Blockchain</span>
+                            </div>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">query_stats</span> Outputs</h4>
+                            <ul class="content-list">
+                                <li>Indexed Records</li>
+                                <li>Query Results</li>
+                                <li>Data Snapshots</li>
+                                <li>Compliance Reports</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="metrics-row">
+                        <div class="metric-card">
+                            <div class="metric-value">10TB+</div>
+                            <div class="metric-label">Storage Capacity</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">1000+</div>
+                            <div class="metric-label">Queries/sec</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">99.9%</div>
+                            <div class="metric-label">Uptime</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stage 4 -->
+                <div class="stage-section fade-in">
+                    <div class="stage-header">
+                        <div class="stage-icon stage-4">
+                            <span class="material-icons">api</span>
+                        </div>
+                        <div class="stage-info">
+                            <h3>Stage 4: APIs & Integrations</h3>
+                            <p>RESTful APIs, real-time connections with external systems and third-party services</p>
+                        </div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="content-card">
+                            <h4><span class="material-icons">input</span> Inputs</h4>
+                            <ul class="content-list">
+                                <li>API Requests</li>
+                                <li>Authentication Tokens</li>
+                                <li>Query Parameters</li>
+                                <li>Webhooks</li>
+                            </ul>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">hub</span> API Tech</h4>
+                            <p style="margin-bottom: 10px;">Integration Stack:</p>
+                            <div class="tech-chips">
+                                <span class="tech-chip">FastAPI</span>
+                                <span class="tech-chip">GraphQL</span>
+                                <span class="tech-chip">WebSockets</span>
+                                <span class="tech-chip">OAuth2</span>
+                            </div>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">send</span> Outputs</h4>
+                            <ul class="content-list">
+                                <li>JSON Responses</li>
+                                <li>Event Streams</li>
+                                <li>Notifications</li>
+                                <li>Integration Status</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="metrics-row">
+                        <div class="metric-card">
+                            <div class="metric-value">50+</div>
+                            <div class="metric-label">Endpoints</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value"><200ms</div>
+                            <div class="metric-label">Response Time</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">1000/min</div>
+                            <div class="metric-label">Rate Limit</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stage 5 -->
+                <div class="stage-section fade-in">
+                    <div class="stage-header">
+                        <div class="stage-icon stage-5">
+                            <span class="material-icons">dashboard</span>
+                        </div>
+                        <div class="stage-info">
+                            <h3>Stage 5: Output & User Experience</h3>
+                            <p>Interactive dashboards, visualizations, reports, and actionable insights</p>
+                        </div>
+                    </div>
+                    <div class="stage-content">
+                        <div class="content-card">
+                            <h4><span class="material-icons">input</span> Inputs</h4>
+                            <ul class="content-list">
+                                <li>Calculated Results</li>
+                                <li>User Preferences</li>
+                                <li>Report Templates</li>
+                                <li>Export Formats</li>
+                            </ul>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">palette</span> UI Tech</h4>
+                            <p style="margin-bottom: 10px;">Frontend Stack:</p>
+                            <div class="tech-chips">
+                                <span class="tech-chip">React</span>
+                                <span class="tech-chip">D3.js</span>
+                                <span class="tech-chip">Chart.js</span>
+                                <span class="tech-chip">Material-UI</span>
+                            </div>
+                        </div>
+                        <div class="content-card">
+                            <h4><span class="material-icons">present_to_all</span> Outputs</h4>
+                            <ul class="content-list">
+                                <li>Interactive Dashboards</li>
+                                <li>PDF Reports</li>
+                                <li>Excel Exports</li>
+                                <li>Email Notifications</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="metrics-row">
+                        <div class="metric-card">
+                            <div class="metric-value"><1s</div>
+                            <div class="metric-label">Load Time</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">20+</div>
+                            <div class="metric-label">Visualizations</div>
+                        </div>
+                        <div class="metric-card">
+                            <div class="metric-value">5+</div>
+                            <div class="metric-label">Export Formats</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Integration Points -->
+                <div class="stage-section fade-in">
+                    <h2 style="margin-bottom: 20px;">External Integration Points</h2>
+                    <div class="integration-grid">
+                        <div class="integration-card erp">
+                            <span class="material-icons" style="font-size: 40px; color: #4CAF50; margin-bottom: 10px;">business</span>
+                            <h4 style="margin-bottom: 5px;">ERP Systems</h4>
+                            <p style="color: #666; font-size: 0.9rem;">SAP, Oracle, MS Dynamics</p>
+                        </div>
+                        <div class="integration-card scada">
+                            <span class="material-icons" style="font-size: 40px; color: #2196F3; margin-bottom: 10px;">sensors</span>
+                            <h4 style="margin-bottom: 5px;">SCADA/IoT</h4>
+                            <p style="color: #666; font-size: 0.9rem;">Real-time sensor data</p>
+                        </div>
+                        <div class="integration-card database">
+                            <span class="material-icons" style="font-size: 40px; color: #FF9800; margin-bottom: 10px;">dataset</span>
+                            <h4 style="margin-bottom: 5px;">Databases</h4>
+                            <p style="color: #666; font-size: 0.9rem;">IPCC, CEA, ecoinvent</p>
+                        </div>
+                        <div class="integration-card blockchain">
+                            <span class="material-icons" style="font-size: 40px; color: #9C27B0; margin-bottom: 10px;">security</span>
+                            <h4 style="margin-bottom: 5px;">Blockchain</h4>
+                            <p style="color: #666; font-size: 0.9rem;">Tamper-proof audit trail</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Key Features -->
+                <div class="stage-section fade-in">
+                    <h2 style="margin-bottom: 20px;">Key Platform Features</h2>
+                    <div class="features-grid">
+                        <div class="feature-card">
+                            <div class="feature-icon material-icons">co2</div>
+                            <div class="feature-title">Carbon Footprint</div>
+                            <div class="feature-desc">80% reduction in assessment time</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon material-icons">recycling</div>
+                            <div class="feature-title">Circularity Metrics</div>
+                            <div class="feature-desc">MCI, recycled content tracking</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon material-icons">water_drop</div>
+                            <div class="feature-title">Water Management</div>
+                            <div class="feature-desc">Full water footprint analysis</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon material-icons">electric_bolt</div>
+                            <div class="feature-title">Energy Optimization</div>
+                            <div class="feature-desc">Real-time energy monitoring</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon material-icons">local_shipping</div>
+                            <div class="feature-title">Supply Chain</div>
+                            <div class="feature-desc">End-to-end traceability</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon material-icons">model_training</div>
+                            <div class="feature-title">AI/ML Models</div>
+                            <div class="feature-desc">Gap-filling & predictions</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon material-icons">security</div>
+                            <div class="feature-title">Security</div>
+                            <div class="feature-desc">ISO 27001 compliant</div>
+                        </div>
+                        <div class="feature-card">
+                            <div class="feature-icon material-icons">speed</div>
+                            <div class="feature-title">Performance</div>
+                            <div class="feature-desc"><200ms response time</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Call to Action -->
+        <div class="cta-section">
+            <h2>Ready for Production Deployment</h2>
+            <p>The AluTrace platform is fully integrated and ready to transform your aluminium LCA process</p>
+            <div class="cta-buttons">
+                <button class="btn btn-primary">
+                    <span class="material-icons">play_arrow</span>
+                    View Live Demo
+                </button>
+                <button class="btn btn-secondary">
+                    <span class="material-icons">download</span>
+                    Download Documentation
+                </button>
+                <button class="btn btn-secondary">
+                    <span class="material-icons">share</span>
+                    Share Platform
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Add interactivity
+        document.addEventListener('DOMContentLoaded', function() {
+            // Navigation item clicks
+            const navItems = document.querySelectorAll('.nav-item');
+            const sections = document.querySelectorAll('.stage-section');
+            
+            navItems.forEach((item, index) => {
+                item.addEventListener('click', function() {
+                    // Remove active class from all items
+                    navItems.forEach(nav => nav.classList.remove('active'));
+                    // Add active class to clicked item
+                    this.classList.add('active');
+                    
+                    // Scroll to corresponding section
+                    if (sections[index]) {
+                        sections[index].scrollIntoView({ behavior: 'smooth' });
+                    }
+                });
+            });
+
+            // Animate progress bars on scroll
+            const observerOptions = {
+                threshold: 0.5
+            };
+
+            const observer = new IntersectionObserver(function(entries) {
+                entries.forEach(entry => {
+                    if (entry.isIntersecting) {
+                        entry.target.classList.add('fade-in');
+                    }
+                });
+            }, observerOptions);
+
+            // Observe all sections
+            sections.forEach(section => {
+                observer.observe(section);
+            });
+
+            // Button interactions
+            const buttons = document.querySelectorAll('.btn');
+            buttons.forEach(button => {
+                button.addEventListener('click', function() {
+                    const text = this.textContent.trim();
+                    alert(`${text} functionality would be implemented here`);
+                });
+            });
+        });
+    </script>
+</body>
+</html>
